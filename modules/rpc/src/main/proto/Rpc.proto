@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package com.lightgraph.raft.proto;
+
+option java_multiple_files = true;
+
+message JoinToClusterRequest{
+  bytes node = 1;
+}
+
+message JoinToClusterResponse{
+  bool success = 2;
+}
+
+message UpdateContextRequest{
+  int64 version = 1;
+}
+
+message UpdateContextResponse{
+  repeated bytes deltas = 1;
+}
+
+message GetNodeVersionRequest{
+}
+
+message GetNodeVersionResponse{
+  int64 version = 1;
+}
+
+message GetMasterLeaderRequest{
+}
+
+message GetMasterLeaderResponse{
+  bytes leader = 1;
+}
+
+message CreateGraphRequest{
+  bytes setting = 1;
+}
+
+message CreateGraphResponse{
+  bool success = 1;
+}
+
+message PutRequest{
+  string graph = 1;
+  bytes keyValue = 2;
+}
+
+message PutResponse{
+  bool success = 1;
+}
+
+message GetRequest{
+  string graph  = 1;
+  bytes key = 2;
+}
+
+message GetResponse{
+  bytes keyValue = 1;
+}
+
+message PrefixScanRequest{
+  string graph  = 1;
+  bytes prefix = 2;
+}
+
+message PrefixScanResponse{
+  repeated bytes result = 1;
+}
+
+message GetGraphMetaRequest{
+  string graph  = 1;
+}
+
+message GetGraphMetaResponse{
+  bytes result = 1;
+}
+
+message ListGraphMetaRequest{
+}
+
+message ListGraphMetaResponse{
+  repeated bytes result = 1;
+}
+
+message AddVertexMetaRequest{
+   bytes vertexMeta = 1;
+}
+
+message AddVertexMetaResponse{
+  bool success = 1;
+}
+
+message AddEdgeMetaRequest{
+   bytes edgeMeta = 1;
+}
+
+message AddEdgeMetaResponse{
+  bool success = 1;
+}
+
+message GetVertexMetaRequest{
+  string graph  = 1;
+  string name  = 2;
+}
+
+message GetVertexMetaResponse{
+  bytes result = 1;
+}
+
+message GetEdgeMetaRequest{
+  string graph  = 1;
+  string name  = 2;
+}
+
+message GetEdgeMetaResponse{
+  bytes result = 1;
+}
+
+message AddReplicationsRequest{
+  repeated bytes replications = 1;
+}
+
+message AddReplicationsResponse{
+  bool success = 1;
+}
+
+message UpdateReplicationRequest{
+  bytes replication = 1;
+}
+
+message UpdateReplicationResponse{
+  bool success = 1;
+}
+
+service RpcService {
+  rpc joinToCluster(JoinToClusterRequest) returns (JoinToClusterResponse);
+  rpc getMasterLeader(GetMasterLeaderRequest) returns (GetMasterLeaderResponse);
+  rpc updateContext(UpdateContextRequest) returns (UpdateContextResponse);
+  rpc createGraph(CreateGraphRequest) returns (CreateGraphResponse);
+  rpc addReplications(AddReplicationsRequest) returns (AddReplicationsResponse);
+  rpc updateReplication(UpdateReplicationRequest) returns (UpdateReplicationResponse);
+  rpc getNodeVersion(GetNodeVersionRequest) returns (GetNodeVersionResponse);
+  rpc getData(GetRequest) returns (GetResponse);
+  rpc prefixScan(PrefixScanRequest) returns (PrefixScanResponse);
+  rpc getGraphMeta(GetGraphMetaRequest) returns (GetGraphMetaResponse);
+  rpc listGraphMeta(ListGraphMetaRequest) returns (ListGraphMetaResponse);
+  rpc addVertexMeta(AddVertexMetaRequest) returns (AddVertexMetaResponse);
+  rpc addEdgeMeta(AddEdgeMetaRequest) returns (AddEdgeMetaResponse);
+  rpc getVertexMeta(GetVertexMetaRequest) returns (GetVertexMetaResponse);
+  rpc getEdgeMeta(GetEdgeMetaRequest) returns (GetEdgeMetaResponse);
+  rpc putData(PutRequest) returns (PutResponse);
+}

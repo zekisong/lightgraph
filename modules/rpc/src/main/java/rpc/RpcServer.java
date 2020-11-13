@@ -1,0 +1,203 @@
+package rpc;
+
+import com.google.protobuf.ByteString;
+import com.lightgraph.graph.cluster.Replication;
+import com.lightgraph.graph.graph.EdgeMetaInfo;
+import com.lightgraph.graph.graph.VertexMetaInfo;
+import com.lightgraph.graph.meta.EdgeMeta;
+import com.lightgraph.graph.meta.VertexMeta;
+import com.lightgraph.graph.meta.cluster.GraphMeta;
+import com.lightgraph.graph.modules.rpc.StorageRpcService;
+import com.lightgraph.graph.modules.rpc.MetaRpcService;
+import com.lightgraph.graph.cluster.node.Node;
+import com.lightgraph.graph.modules.storage.KeyValue;
+import com.lightgraph.graph.settings.GraphSetting;
+import com.lightgraph.raft.proto.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class RpcServer extends RpcServiceGrpc.RpcServiceImplBase {
+
+    private MetaRpcService metaRpcService;
+    private StorageRpcService dataRpcService;
+
+    public RpcServer(MetaRpcService metaRpcService, StorageRpcService dataRpcService) {
+        this.metaRpcService = metaRpcService;
+        this.dataRpcService = dataRpcService;
+    }
+
+    @Override
+    public void joinToCluster(com.lightgraph.raft.proto.JoinToClusterRequest request,
+                              io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.JoinToClusterResponse> responseObserver) {
+        JoinToClusterResponse.Builder response = JoinToClusterResponse.newBuilder();
+        Node node = new Node(request.getNode().toByteArray());
+        boolean ret = metaRpcService.joinToCluster(node);
+        response.setSuccess(ret);
+        responseObserver.onNext(response.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getMasterLeader(com.lightgraph.raft.proto.GetMasterLeaderRequest request,
+                                io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.GetMasterLeaderResponse> responseObserver) {
+        GetMasterLeaderResponse.Builder builder = GetMasterLeaderResponse.newBuilder();
+        Node leader = metaRpcService.getLeader();
+        if (leader != null)
+            builder.setLeader(ByteString.copyFrom(leader.getBytes()));
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void updateContext(com.lightgraph.raft.proto.UpdateContextRequest request,
+                              io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.UpdateContextResponse> responseObserver) {
+        UpdateContextResponse.Builder builder = UpdateContextResponse.newBuilder();
+        long version = request.getVersion();
+        List<byte[]> deltas = metaRpcService.updateContext(version);
+        deltas.forEach(d -> builder.addDeltas(ByteString.copyFrom(d)));
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void createGraph(com.lightgraph.raft.proto.CreateGraphRequest request,
+                            io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.CreateGraphResponse> responseObserver) {
+        CreateGraphResponse.Builder builder = CreateGraphResponse.newBuilder();
+        boolean ret = metaRpcService.createGraph(new GraphSetting(request.getSetting().toByteArray()));
+        builder.setSuccess(ret);
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void putData(com.lightgraph.raft.proto.PutRequest request,
+                        io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.PutResponse> responseObserver) {
+        PutResponse.Builder builder = PutResponse.newBuilder();
+        String graph = request.getGraph();
+        KeyValue kv = new KeyValue(request.getKeyValue().toByteArray());
+        boolean ret = dataRpcService.put(graph, kv);
+        builder.setSuccess(ret);
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getData(com.lightgraph.raft.proto.GetRequest request,
+                        io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.GetResponse> responseObserver) {
+        GetResponse.Builder builder = GetResponse.newBuilder();
+        String graph = request.getGraph();
+        KeyValue keyValue = new KeyValue(request.getKey().toByteArray());
+        byte[] result = dataRpcService.get(graph, keyValue).getBytes();
+        builder.setKeyValue(ByteString.copyFrom(result));
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void prefixScan(com.lightgraph.raft.proto.PrefixScanRequest request,
+                           io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.PrefixScanResponse> responseObserver) {
+        PrefixScanResponse.Builder builder = PrefixScanResponse.newBuilder();
+        String graph = request.getGraph();
+        List<KeyValue> keyValues = dataRpcService.scan(graph, new KeyValue(request.getPrefix().toByteArray()));
+        keyValues.forEach(kv -> {
+            builder.addResult(ByteString.copyFrom(kv.getBytes()));
+        });
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    public void getGraphMeta(com.lightgraph.raft.proto.GetGraphMetaRequest request,
+                             io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.GetGraphMetaResponse> responseObserver) {
+        GetGraphMetaResponse.Builder builder = GetGraphMetaResponse.newBuilder();
+        String graph = request.getGraph();
+        GraphMeta meta = metaRpcService.getGraphMeta(graph);
+        builder.setResult(ByteString.copyFrom(meta.getBytes()));
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    public void listGraphMeta(com.lightgraph.raft.proto.ListGraphMetaRequest request,
+                              io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.ListGraphMetaResponse> responseObserver) {
+        ListGraphMetaResponse.Builder builder = ListGraphMetaResponse.newBuilder();
+        List<GraphMeta> metas = metaRpcService.listGraphMeta();
+        metas.forEach(m -> builder.addResult(ByteString.copyFrom(m.getBytes())));
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getNodeVersion(com.lightgraph.raft.proto.GetNodeVersionRequest request,
+                               io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.GetNodeVersionResponse> responseObserver) {
+        GetNodeVersionResponse.Builder builder = GetNodeVersionResponse.newBuilder();
+        long version = metaRpcService.getNodeVersion();
+        builder.setVersion(version);
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void addVertexMeta(com.lightgraph.raft.proto.AddVertexMetaRequest request,
+                              io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.AddVertexMetaResponse> responseObserver) {
+        AddVertexMetaResponse.Builder builder = AddVertexMetaResponse.newBuilder();
+        VertexMetaInfo info = new VertexMetaInfo(request.getVertexMeta().toByteArray());
+        boolean success = metaRpcService.addVertexMeta(info);
+        builder.setSuccess(success);
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void addEdgeMeta(com.lightgraph.raft.proto.AddEdgeMetaRequest request,
+                            io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.AddEdgeMetaResponse> responseObserver) {
+        AddEdgeMetaResponse.Builder builder = AddEdgeMetaResponse.newBuilder();
+        EdgeMetaInfo info = new EdgeMetaInfo(request.getEdgeMeta().toByteArray());
+        boolean success = metaRpcService.addEdgeMeta(info);
+        builder.setSuccess(success);
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getVertexMeta(com.lightgraph.raft.proto.GetVertexMetaRequest request,
+                              io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.GetVertexMetaResponse> responseObserver) {
+        GetVertexMetaResponse.Builder builder = GetVertexMetaResponse.newBuilder();
+        VertexMeta meta = metaRpcService.getVertexMeta(request.getGraph(), request.getName());
+        builder.setResult(ByteString.copyFrom(meta.getBytes()));
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getEdgeMeta(com.lightgraph.raft.proto.GetEdgeMetaRequest request,
+                            io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.GetEdgeMetaResponse> responseObserver) {
+        GetEdgeMetaResponse.Builder builder = GetEdgeMetaResponse.newBuilder();
+        EdgeMeta meta = metaRpcService.getEdgeMeta(request.getGraph(), request.getName());
+        builder.setResult(ByteString.copyFrom(meta.getBytes()));
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void addReplications(com.lightgraph.raft.proto.AddReplicationsRequest request,
+                                io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.AddReplicationsResponse> responseObserver) {
+        AddReplicationsResponse.Builder builder = AddReplicationsResponse.newBuilder();
+        List<Replication> replications = new ArrayList<>();
+        request.getReplicationsList().forEach(r -> replications.add(new Replication(r.toByteArray())));
+        boolean ret = metaRpcService.addReplications(replications);
+        builder.setSuccess(ret);
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void updateReplication(com.lightgraph.raft.proto.UpdateReplicationRequest request,
+                                  io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.UpdateReplicationResponse> responseObserver) {
+        UpdateReplicationResponse.Builder builder = UpdateReplicationResponse.newBuilder();
+        Replication replication = new Replication(request.getReplication().toByteArray());
+        boolean ret = metaRpcService.updateReplication(replication);
+        builder.setSuccess(ret);
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+}

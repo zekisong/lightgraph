@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>graphdb</artifactId>
+        <groupId>com.lightgraph.graph</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.lightgraph.graph</groupId>
+    <artifactId>modules</artifactId>
+    <packaging>pom</packaging>
+    <modules>
+        <module>serde</module>
+        <module>partition</module>
+        <module>rpc</module>
+        <module>rocksdb</module>
+        <module>raft</module>
+        <module>net</module>
+        <module>restful</module>
+    </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.lightgraph.graph</groupId>
+            <artifactId>core</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+
+</project>

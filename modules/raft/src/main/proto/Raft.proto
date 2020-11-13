@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package com.lightgraph.raft.proto;
+
+option java_multiple_files = true;
+
+message VoteRequest{
+  bytes instance = 1;
+  bytes candidate = 2;
+  int64 index = 3;
+  int64 term = 4;
+}
+
+message VoteResponse{
+  bool accept = 1;
+}
+
+message HeartBeatRequest{
+  bytes instance = 1;
+  bytes leader = 2;
+  int64 index = 3;
+  int64 term = 4;
+  int64 commitIndex = 5;
+  bool isHeartBeat = 6;
+}
+
+message HeartBeatResponse{
+  int64 index = 1;
+  bool isok = 2;
+}
+
+message AppendLogEditRequest{
+  bytes instance = 1;
+  int64 preTerm = 2;
+  int64 term = 3;
+  int64 index = 4;
+  bytes record = 5;
+}
+
+message AppendLogEditResponse{
+  bool isok = 1;
+}
+
+service RaftService {
+    rpc vote(VoteRequest) returns (VoteResponse);
+    rpc keepHeartBeat(HeartBeatRequest) returns (HeartBeatResponse);
+    rpc appendLog(AppendLogEditRequest) returns (AppendLogEditResponse);
+}
