@@ -5,6 +5,7 @@ import com.lightgraph.graph.utils.ByteUtils;
 import java.nio.ByteBuffer;
 
 public class LogEdit {
+
     private long term;
     private long preTerm;
     private long index;

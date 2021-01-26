@@ -14,6 +14,7 @@ import java.nio.file.StandardOpenOption;
 import static com.lightgraph.graph.constant.GraphConstant.DIR_SEPARATOR;
 
 public class LogSegment {
+
     public static final String DATA_SUFFIX = "dat";
     public static final String INDEX_SUFFIX = "idx";
     public static final String FILE_PATTERN = "%s" + GraphConstant.FILE_SUFFIX_TOKEN + "%s";
@@ -33,10 +34,12 @@ public class LogSegment {
 
     public void open() {
         try {
-            dataChannel = FileChannel.open(new File(dataPath).toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ,
-                    StandardOpenOption.WRITE);
-            indexChannel = FileChannel.open(new File(indexPath).toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ,
-                    StandardOpenOption.WRITE);
+            dataChannel = FileChannel
+                    .open(new File(dataPath).toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ,
+                            StandardOpenOption.WRITE);
+            indexChannel = FileChannel
+                    .open(new File(indexPath).toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ,
+                            StandardOpenOption.WRITE);
             ByteBuffer buffer = ShortSafeBuffer.getTLB();
             if (indexChannel.read(buffer, 0) > 0) {
                 buffer.flip();
@@ -97,8 +100,9 @@ public class LogSegment {
         ByteBuffer buffer = edit.toByteBuffer();
         int size = buffer.limit();
         try {
-            if (startIndex == -1)
+            if (startIndex == -1) {
                 startIndex = edit.getIndex();
+            }
             dataChannel.write(buffer);
             dataChannel.force(true);
             buffer = ShortSafeBuffer.getTLB();

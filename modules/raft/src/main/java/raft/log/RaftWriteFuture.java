@@ -7,6 +7,7 @@ import org.apache.commons.logging.LogFactory;
 import java.util.concurrent.CountDownLatch;
 
 public class RaftWriteFuture implements WriteFuture {
+
     private static final Log LOG = LogFactory.getLog(RaftWriteFuture.class);
     private long term;
     private long index;

@@ -3,6 +3,7 @@ package restful.model;
 import java.io.Serializable;
 
 public class PutModel implements Serializable {
+
     String key;
     String value;
 

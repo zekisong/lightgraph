@@ -12,6 +12,7 @@ import java.io.IOException;
  * Shared with rpc & raft
  */
 public class NetworkModuleImpl implements NetworkModule {
+
     private ServerBuilder builder;
 
     @Override

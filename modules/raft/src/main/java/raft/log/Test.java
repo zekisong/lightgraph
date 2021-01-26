@@ -1,6 +1,7 @@
 package raft.log;
 
 public class Test {
+
     public static void main(String[] args) throws InterruptedException {
 
  /*       LogSystem logSystem = new LogSystem(null, "/tmp/test", 1024 * 1024, new TimeWheel(1000, 10));

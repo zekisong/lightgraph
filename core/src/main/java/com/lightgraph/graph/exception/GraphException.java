@@ -2,6 +2,7 @@ package com.lightgraph.graph.exception;
 
 
 public class GraphException extends RuntimeException {
+
     private ErrorCode errorcode;
 
     public GraphException() {

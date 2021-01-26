@@ -4,7 +4,6 @@ import com.lightgraph.graph.constant.GraphConstant;
 import com.lightgraph.graph.exception.GraphException;
 import com.lightgraph.graph.modules.consensus.AbstractLeaderChangeListener;
 import com.lightgraph.graph.modules.consensus.ConsensusInstance;
-import com.lightgraph.graph.modules.consensus.ConsensusInstanceState;
 import com.lightgraph.graph.modules.consensus.WriteFuture;
 import com.lightgraph.graph.timewheel.Task;
 import com.lightgraph.graph.timewheel.TaskNode;
@@ -34,6 +33,7 @@ import java.util.concurrent.locks.*;
  * |_______|__________|
  */
 public class LogSystem extends AbstractLeaderChangeListener {
+
     private static final Log LOG = LogFactory.getLog(LogSystem.class);
     private String logPath;
     private long segmentSize;
@@ -68,8 +68,9 @@ public class LogSystem extends AbstractLeaderChangeListener {
 
     public void initSegments(boolean clean) {
         File logDir = new File(logPath);
-        if (!logDir.exists())
+        if (!logDir.exists()) {
             logDir.mkdir();
+        }
         long largestIndex = -1;
         for (File file : logDir.listFiles()) {
             String name = file.getName();
@@ -152,14 +153,16 @@ public class LogSystem extends AbstractLeaderChangeListener {
                     return false;
                 }
             } else if (index < latestIndex || currentEdit.getTerm() != preTerm) {
-                LOG.info("master try to append index:" + index + "\tterm:" + term + "\tpre term:" + preTerm + "\tmy latest edit index:" + latestIndex + "\tterm:" + currentEdit.getTerm());
+                LOG.info("master try to append index:" + index + "\tterm:" + term + "\tpre term:" + preTerm
+                        + "\tmy latest edit index:" + latestIndex + "\tterm:" + currentEdit.getTerm());
                 long requereIndex = index - 1 >= 0 ? index - 1 : 0;
                 currentEdit = getLogEdit(requereIndex);
                 truncateTo(requereIndex);
                 setLatestEditIndex(requereIndex);
                 return false;
             } else if (index > latestIndex) {
-                LOG.info("master try to append index:" + index + "\tterm:" + term + "\tpre term:" + preTerm + "\tmy latest edit index:" + latestIndex + "\tterm:" + currentEdit.getTerm() + "\t ignored");
+                LOG.info("master try to append index:" + index + "\tterm:" + term + "\tpre term:" + preTerm
+                        + "\tmy latest edit index:" + latestIndex + "\tterm:" + currentEdit.getTerm() + "\t ignored");
                 return false;
             } else {
                 LogEdit edit = new LogEdit(record, preTerm, term, index);
@@ -179,34 +182,39 @@ public class LogSystem extends AbstractLeaderChangeListener {
 
     public void truncateTo(long index) {
         LogSegment segment = segmentMap.floorEntry(index).getValue();
-        if (segment.getEndIndex() < index)
+        if (segment.getEndIndex() < index) {
             throw new GraphException("should not reach here!");
+        }
         try {
             segment.truncateTo(index);
             currentSegment = segment;
-            LOG.info(String.format("current segment:[%d,%d]", currentSegment.getStartIndex(), currentSegment.getEndIndex()));
+            LOG.info(String.format("current segment:[%d,%d]", currentSegment.getStartIndex(),
+                    currentSegment.getEndIndex()));
             //clean dirty segment
             Map<Long, LogSegment> dirtySegments = segmentMap.tailMap(index + 1);
             for (Long segmentIndex : dirtySegments.keySet()) {
                 LogSegment dirtySegment = dirtySegments.get(segmentIndex);
-                LOG.info(String.format("remove segment:[%d,%d]", dirtySegment.getStartIndex(), dirtySegment.getEndIndex()));
+                LOG.info(String.format("remove segment:[%d,%d]", dirtySegment.getStartIndex(),
+                        dirtySegment.getEndIndex()));
                 dirtySegment.close();
                 dirtySegment.delete();
                 segmentMap.remove(segmentIndex);
             }
         } catch (Throwable e) {
-            LOG.info(String.format("current segment:[%d,%d] failed!", currentSegment.getStartIndex(), currentSegment.getEndIndex()));
+            LOG.info(String.format("current segment:[%d,%d] failed!", currentSegment.getStartIndex(),
+                    currentSegment.getEndIndex()));
         }
     }
 
     public LogEdit getLogEdit(long index) {
         try {
             LogSegment segment = segmentMap.floorEntry(index).getValue();
-            if (index > segment.getEndIndex() || index < segment.getStartIndex())
+            if (index > segment.getEndIndex() || index < segment.getStartIndex()) {
                 return null;
+            }
             return segment.seekTo(index);
         } catch (Throwable e) {
-            LOG.error("get log edit from failed,index:" + index);
+            LOG.error("get log edit from failed,index:" + index, e);
             throw new GraphException("get log edit failed,segment");
         }
     }
@@ -242,10 +250,11 @@ public class LogSystem extends AbstractLeaderChangeListener {
 
     public void setCommitedEditIndex(long commitIndex) {
         long currentCommitedIndex = getCommitedEditIndex();
-        if (commitIndex == currentCommitedIndex && currentCommitedIndex != 0)
+        if (commitIndex == currentCommitedIndex && currentCommitedIndex != 0) {
             return;
-        else if (commitIndex < currentCommitedIndex) {
-            LOG.error(String.format("try to update commit index:%d,current commited index:%d, ignore...", commitIndex, currentCommitedIndex));
+        } else if (commitIndex < currentCommitedIndex) {
+            LOG.error(String.format("try to update commit index:%d,current commited index:%d, ignore...", commitIndex,
+                    currentCommitedIndex));
             return;
         }
         try {
@@ -346,8 +355,9 @@ public class LogSystem extends AbstractLeaderChangeListener {
 
         @Override
         public Object doTask() {
-            if (snapShotTask != null)
+            if (snapShotTask != null) {
                 snapShotTask.reset();
+            }
             try {
                 long size = currentSegment.getDataSize();
                 if (size > segmentSize) {
@@ -390,8 +400,9 @@ public class LogSystem extends AbstractLeaderChangeListener {
         List<Long> indices = new ArrayList();
         long latestIndex = getLatestEditIndex();
         instanceIndexMap.put(instance, latestIndex);
-        for (Long index : instanceIndexMap.values())
+        for (Long index : instanceIndexMap.values()) {
             indices.add(index);
+        }
         Collections.sort(indices);
         long lowWaterMark = indices.get((groupSize - 1) / 2) - 1;
         if (indices.size() > 0 && lowWaterMark >= 0) {
@@ -404,6 +415,7 @@ public class LogSystem extends AbstractLeaderChangeListener {
     }
 
     static class LogSender {
+
         private ExecutorService executors;
         private List<Set<ConsensusInstance>> slots;
         private Map<ConsensusInstance, LogSystem> logMap = new ConcurrentHashMap<>();
@@ -444,12 +456,15 @@ public class LogSystem extends AbstractLeaderChangeListener {
                                 LogEdit edit = log.getLogEdit(index);
                                 boolean isok = false;
                                 try {
-                                    isok = log.getQuorum().appendLogSync(instance, edit.getPreTerm(), edit.getTerm(), edit.getIndex(), edit.getData());
+                                    isok = log.getQuorum()
+                                            .appendLogSync(instance, edit.getPreTerm(), edit.getTerm(), edit.getIndex(),
+                                                    edit.getData());
                                 } catch (Throwable e) {
                                     LOG.error("sync index:" + index + "to:" + instance + " falied!", e);
                                 }
                                 if (!isok) {
-                                    LOG.info("sync index:" + index + " to " + instance + " falied!\t version:" + log.getInstanceIndex(instance));
+                                    LOG.info("sync index:" + index + " to " + instance + " falied!\t version:" + log
+                                            .getInstanceIndex(instance));
                                     nextIndex = index - 1 >= 0 ? index - 1 : 0;
                                     break;
                                 }

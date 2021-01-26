@@ -26,8 +26,10 @@ public class BackendStorageModuleImpl implements BackendStorageModule {
 
     @Override
     public void setup(Configurable config) {
-        dataDirs = Arrays.asList(config.get(RocksConstant.ROCKSDB_DATA_PATH, RocksConstant.ROCKSDB_DATA_PATH_DEFAULT).split(GraphConstant.SPLIT_ARRAY_TOKEN));
-        String clazz = config.get(RocksConstant.ROCKSDB_ALLOCATE_PATH_STRATEGY, RocksConstant.ROCKSDB_ALLOCATE_PATH_STRATEGY_DEFAULT);
+        dataDirs = Arrays.asList(config.get(RocksConstant.ROCKSDB_DATA_PATH, RocksConstant.ROCKSDB_DATA_PATH_DEFAULT)
+                .split(GraphConstant.SPLIT_ARRAY_TOKEN));
+        String clazz = config.get(RocksConstant.ROCKSDB_ALLOCATE_PATH_STRATEGY,
+                RocksConstant.ROCKSDB_ALLOCATE_PATH_STRATEGY_DEFAULT);
         try {
             allocateStorageStrategy = ReflectUtils.getInstance(clazz);
         } catch (Exception e) {

@@ -3,6 +3,7 @@ package rocksdb.exception;
 import java.io.IOException;
 
 public class BackendException extends IOException {
+
     public BackendException(String msg) {
         super(msg);
     }

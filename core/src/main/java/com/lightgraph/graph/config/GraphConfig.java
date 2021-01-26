@@ -5,9 +5,12 @@ import com.lightgraph.graph.utils.DataTypeUtils;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 public class GraphConfig implements Configurable {
 
+    private static final Log LOG = LogFactory.getLog(GraphConfig.class);
     private static volatile GraphConfig INSTANCE = null;
     private Map<String, String> config = new ConcurrentHashMap();
 
@@ -19,7 +22,7 @@ public class GraphConfig implements Configurable {
                 config.put(property.toString(), properties.get(property).toString());
             }
         } catch (Throwable e) {
-            e.printStackTrace();
+            LOG.warn("load config from graph.properties failed!", e);
         }
     }
 
@@ -40,8 +43,9 @@ public class GraphConfig implements Configurable {
 
     public <T> T get(String key, T defaultValue) {
         String value = config.get(key);
-        if (value == null)
+        if (value == null) {
             return defaultValue;
+        }
         Class clazz = defaultValue.getClass();
         T ret = DataTypeUtils.getValue(value, clazz);
         return ret;

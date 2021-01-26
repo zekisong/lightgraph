@@ -5,8 +5,6 @@ import com.lightgraph.graph.cluster.Replication;
 import com.lightgraph.graph.command.MetaCommandRunner;
 import com.lightgraph.graph.graph.EdgeMetaInfo;
 import com.lightgraph.graph.graph.VertexMetaInfo;
-import com.lightgraph.graph.meta.PropertyMeta;
-import com.lightgraph.graph.meta.VertexMeta;
 import com.lightgraph.graph.modules.consensus.ConsensusIO;
 import com.lightgraph.graph.modules.consensus.ConsensusInstanceState;
 import com.lightgraph.graph.modules.rpc.MetaRpcService;
@@ -21,8 +19,8 @@ import com.lightgraph.graph.utils.MurmurHashUtils;
 
 import java.util.*;
 
-
 public abstract class NodeManager implements MetaRpcService {
+
     protected volatile ClusterContext context = new ClusterContext();
     protected ServerService server;
     protected MetaCommandRunner commandRunner;
@@ -58,8 +56,9 @@ public abstract class NodeManager implements MetaRpcService {
     }
 
     public Replication getPartitionLeader(String graph, byte[] key) {
-        if (getRoutting().get(graph) == null)
+        if (getRoutting().get(graph) == null) {
             return null;
+        }
         int partitions = getRoutting().get(graph).size();
         int partitionIndex = Math.abs(MurmurHashUtils.hash(key, 0, key.length, 0)) % partitions;
         Partition partition = context.getRoutting().get(graph).get(partitionIndex);
@@ -73,8 +72,9 @@ public abstract class NodeManager implements MetaRpcService {
 
     public Set<Replication> getReplications(String graph, byte[] key) {
         Set<Replication> replications = new HashSet();
-        if (getRoutting().get(graph) == null)
+        if (getRoutting().get(graph) == null) {
             return null;
+        }
         int partitions = getRoutting().get(graph).size();
         int partitionIndex = Math.abs(MurmurHashUtils.hash(key, 0, key.length, 0)) % partitions;
         Partition partition = context.getRoutting().get(graph).get(partitionIndex);

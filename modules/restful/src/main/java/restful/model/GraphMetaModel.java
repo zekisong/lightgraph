@@ -6,19 +6,30 @@ import java.text.SimpleDateFormat;
 import java.util.Map;
 
 public class GraphMetaModel {
+
     private static ThreadLocal<SimpleDateFormat> format = new ThreadLocal<>();
     private String graph;
+    private Long id;
     private Map<String, String> config;
     private String createTime;
 
     public GraphMetaModel(GraphMeta meta) {
         this.graph = meta.getName();
         this.config = meta.getSetting().getConfig();
+        this.id = meta.getId();
         SimpleDateFormat sdf = format.get();
         if (sdf == null) {
             sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         }
         this.createTime = sdf.format(meta.getCreateTime());
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public String getGraph() {

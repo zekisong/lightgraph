@@ -1,22 +1,28 @@
 package com.lightgraph.graph.data;
 
-
-import com.lightgraph.graph.meta.DataType;
 import com.lightgraph.graph.meta.PropertyMeta;
-import com.lightgraph.graph.utils.DataTypeUtils;
-import com.lightgraph.graph.writable.Sizeable;
-import com.lightgraph.graph.writable.Writable;
 
-public class Property extends GraphElements<PropertyMeta> implements Writable, Sizeable {
+public class Property extends GraphElements<PropertyMeta> {
+
+    private Long pid;
     private Object value;
+
+    public Property() {
+    }
 
     public Property(PropertyMeta meta) {
         super(meta);
+        this.pid = meta.getId();
     }
 
     public <T> Property(PropertyMeta meta, T value) {
         this(meta);
         this.value = value;
+        this.pid = meta.getId();
+    }
+
+    public Long getPid() {
+        return pid;
     }
 
     public <T> T getValue() {
@@ -28,24 +34,5 @@ public class Property extends GraphElements<PropertyMeta> implements Writable, S
 
     public <T> void setValue(T value) {
         this.value = value;
-    }
-
-    @Override
-    public int size() {
-        int valueSize;
-        if (value == null) {
-            value = meta.getDefaultValue();
-        }
-        if (meta.getDataType() == DataType.STRING) {
-            valueSize = value.toString().length();
-        } else {
-            valueSize = DataTypeUtils.sizeOf(meta.getDataType());
-        }
-        return 0;
-    }
-
-    @Override
-    public byte[] getBytes() {
-        return new byte[0];
     }
 }

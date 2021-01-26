@@ -15,7 +15,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class RpcServiceModuleImpl implements RpcServiceModule {
-    private Map<Node, RpcClient> metaHandlerMap = new ConcurrentHashMap<>();
+
+    private Map<Node, RpcClient> handlerMap = new ConcurrentHashMap<>();
     ServerBuilder builder;
 
     @Override
@@ -35,15 +36,16 @@ public class RpcServiceModuleImpl implements RpcServiceModule {
 
     @Override
     public MetaRpcService getRpcServiceHandler(Node node) {
-        if (metaHandlerMap.containsKey(node)) {
-            return metaHandlerMap.get(node);
+        if (handlerMap.containsKey(node)) {
+            return handlerMap.get(node);
         } else {
             ManagedChannel channel = ManagedChannelBuilder.forAddress(node.getAddr(), node.getPort())
                     .usePlaintext(true)
                     .build();
             RpcServiceGrpc.RpcServiceBlockingStub syncStub = RpcServiceGrpc.newBlockingStub(channel);
-            RpcClient handler = new RpcClient(syncStub);
-            metaHandlerMap.put(node, handler);
+            RpcServiceGrpc.RpcServiceStub asyncStub = RpcServiceGrpc.newStub(channel);
+            RpcClient handler = new RpcClient(syncStub, asyncStub);
+            handlerMap.put(node, handler);
             return handler;
         }
     }

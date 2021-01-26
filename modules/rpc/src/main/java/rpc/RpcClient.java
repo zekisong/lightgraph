@@ -2,18 +2,26 @@ package rpc;
 
 import com.google.protobuf.ByteString;
 import com.lightgraph.graph.cluster.Replication;
+import com.lightgraph.graph.exception.GraphException;
 import com.lightgraph.graph.graph.EdgeMetaInfo;
 import com.lightgraph.graph.graph.VertexMetaInfo;
 import com.lightgraph.graph.meta.EdgeMeta;
+import com.lightgraph.graph.meta.LabelMeta;
+import com.lightgraph.graph.meta.LabelType;
+import com.lightgraph.graph.meta.MetaType;
 import com.lightgraph.graph.meta.VertexMeta;
 import com.lightgraph.graph.meta.cluster.GraphMeta;
 import com.lightgraph.graph.modules.rpc.StorageRpcService;
 import com.lightgraph.graph.modules.rpc.MetaRpcService;
 import com.lightgraph.graph.modules.rpc.ServiceType;
 import com.lightgraph.graph.cluster.node.Node;
+import com.lightgraph.graph.modules.storage.Batch;
+import com.lightgraph.graph.modules.storage.Key;
 import com.lightgraph.graph.modules.storage.KeyValue;
 import com.lightgraph.graph.settings.GraphSetting;
 import com.lightgraph.raft.proto.*;
+import io.grpc.stub.StreamObserver;
+import java.util.Iterator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -24,9 +32,11 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
 
     private static final Log LOG = LogFactory.getLog(RpcClient.class);
     private RpcServiceGrpc.RpcServiceBlockingStub stub;
+    private RpcServiceGrpc.RpcServiceStub asyncStub;
 
-    public RpcClient(RpcServiceGrpc.RpcServiceBlockingStub stub) {
+    public RpcClient(RpcServiceGrpc.RpcServiceBlockingStub stub, RpcServiceGrpc.RpcServiceStub asyncStub) {
         this.stub = stub;
+        this.asyncStub = asyncStub;
     }
 
     @Override
@@ -36,7 +46,7 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
         try {
             GetMasterLeaderResponse response = stub.getMasterLeader(request);
             if (!response.getLeader().isEmpty()) {
-                leader = new Node(response.getLeader().toByteArray());
+                leader = Node.getInstance(response.getLeader().toByteArray(), Node.class);
                 return leader;
             } else {
                 return null;
@@ -90,7 +100,8 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
 
     @Override
     public boolean createGraph(GraphSetting setting) {
-        CreateGraphRequest request = CreateGraphRequest.newBuilder().setSetting(ByteString.copyFrom(setting.getBytes())).build();
+        CreateGraphRequest request = CreateGraphRequest.newBuilder().setSetting(ByteString.copyFrom(setting.getBytes()))
+                .build();
         try {
             CreateGraphResponse response = stub.createGraph(request);
             return response.getSuccess();
@@ -115,7 +126,8 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
 
     @Override
     public boolean updateReplication(Replication replication) {
-        UpdateReplicationRequest request = UpdateReplicationRequest.newBuilder().setReplication(ByteString.copyFrom(replication.getBytes())).build();
+        UpdateReplicationRequest request = UpdateReplicationRequest.newBuilder()
+                .setReplication(ByteString.copyFrom(replication.getBytes())).build();
         try {
             UpdateReplicationResponse response = stub.updateReplication(request);
             return response.getSuccess();
@@ -126,8 +138,29 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
     }
 
     @Override
+    public LabelMeta getLabelMetaById(Long id, LabelType type) {
+        GetLabelMetaByIdRequest request = GetLabelMetaByIdRequest.newBuilder().setId(id).setLabelType(type.toString())
+                .build();
+        try {
+            GetLabelMetaByIdResponse response = stub.getLabelMetaById(request);
+            switch (type) {
+                case VERTEX:
+                    return VertexMeta.getInstance(response.getResult().toByteArray(), VertexMeta.class);
+                case EDGE:
+                    return EdgeMeta.getInstance(response.getResult().toByteArray(), EdgeMeta.class);
+                default:
+                    throw new GraphException("label type not support!");
+            }
+        } catch (Exception e) {
+            LOG.error("get label meta failed!", e);
+            throw e;
+        }
+    }
+
+    @Override
     public boolean put(String graph, KeyValue keyValue) {
-        PutRequest request = PutRequest.newBuilder().setGraph(graph).setKeyValue(ByteString.copyFrom(keyValue.getBytes())).build();
+        PutRequest request = PutRequest.newBuilder().setGraph(graph)
+                .setKeyValue(ByteString.copyFrom(keyValue.getBytes())).build();
         try {
             PutResponse response = stub.putData(request);
             return response.getSuccess();
@@ -138,15 +171,47 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
     }
 
     @Override
-    public List<KeyValue> scan(String graph, KeyValue keyValue) {
-        PrefixScanRequest request = PrefixScanRequest.newBuilder().setGraph(graph).setPrefix(ByteString.copyFrom(keyValue.getBytes())).build();
+    public boolean batchPut(String graph, Replication replication, Batch batch) {
+        BatchPutRequest request = BatchPutRequest.newBuilder()
+                .setBatch(ByteString.copyFrom(batch.getBytes())).setGraph(graph)
+                .setReplication(ByteString.copyFrom(replication.getBytes())).build();
         try {
-            PrefixScanResponse response = stub.prefixScan(request);
-            List<KeyValue> keyValues = new ArrayList<>();
-            response.getResultList().forEach(kv -> {
-                keyValues.add(new KeyValue(kv.toByteArray()));
+            BatchPutResponse response = stub.batchPut(request);
+            return response.getSuccess();
+        } catch (Exception e) {
+            LOG.error("put failed!", e);
+            throw e;
+        }
+    }
+
+    @Override
+    public Iterator<KeyValue> scan(String graph, Key start) {
+        PrefixScanRequest request = PrefixScanRequest.newBuilder().setGraph(graph)
+                .setPrefix(ByteString.copyFrom(start.bytes())).build();
+        try {
+            ReduceIterator it = new ReduceIterator();
+            asyncStub.prefixScan(request, new StreamObserver<PrefixScanResponse>() {
+                @Override
+                public void onNext(PrefixScanResponse response) {
+                    List<KeyValue> keyValues = new ArrayList<>();
+                    response.getResultList().forEach(kv -> {
+                        keyValues.add(KeyValue.getInstance(kv.toByteArray(), KeyValue.class));
+                    });
+                    it.add(keyValues);
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    LOG.info("error!", throwable);
+                    it.close();
+                }
+
+                @Override
+                public void onCompleted() {
+                    it.close();
+                }
             });
-            return keyValues;
+            return it;
         } catch (Exception e) {
             LOG.error("get failed!", e);
             throw e;
@@ -158,7 +223,7 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
         GetGraphMetaRequest request = GetGraphMetaRequest.newBuilder().setGraph(graph).build();
         try {
             GetGraphMetaResponse response = stub.getGraphMeta(request);
-            return new GraphMeta(response.getResult().toByteArray());
+            return GraphMeta.getInstance(response.getResult().toByteArray(), GraphMeta.class);
         } catch (Exception e) {
             LOG.error("put failed!", e);
             throw e;
@@ -172,18 +237,43 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
             ListGraphMetaResponse response = stub.listGraphMeta(request);
             List<GraphMeta> metas = new ArrayList<>();
             response.getResultList().forEach(r -> {
-                metas.add(new GraphMeta(r.toByteArray()));
+                metas.add(GraphMeta.getInstance(r.toByteArray(), GraphMeta.class));
             });
             return metas;
         } catch (Exception e) {
-            LOG.error("put failed!", e);
+            LOG.error("list graph meta failed!", e);
+            throw e;
+        }
+    }
+
+    @Override
+    public List<LabelMeta> listLabelMeta(String graph, MetaType metaType) {
+        ListLabelMetaRequest request = ListLabelMetaRequest.newBuilder().setGraph(graph)
+                .setMetaType(metaType.toString()).build();
+        try {
+            ListLabelMetaResponse response = stub.listLabelMeta(request);
+            List<LabelMeta> metas = new ArrayList<>();
+            response.getResultList().forEach(r -> {
+                switch (metaType) {
+                    case VERTEX:
+                        metas.add(VertexMeta.getInstance(r.toByteArray(), VertexMeta.class));
+                        break;
+                    case EDGE:
+                        metas.add(EdgeMeta.getInstance(r.toByteArray(), EdgeMeta.class));
+                        break;
+                }
+            });
+            return metas;
+        } catch (Exception e) {
+            LOG.error("list label meta failed!", e);
             throw e;
         }
     }
 
     @Override
     public boolean addVertexMeta(VertexMetaInfo vertexMetaInfo) {
-        AddVertexMetaRequest.Builder builder = AddVertexMetaRequest.newBuilder().setVertexMeta(ByteString.copyFrom(vertexMetaInfo.getBytes()));
+        AddVertexMetaRequest.Builder builder = AddVertexMetaRequest.newBuilder()
+                .setVertexMeta(ByteString.copyFrom(vertexMetaInfo.getBytes()));
         try {
             AddVertexMetaResponse response = stub.addVertexMeta(builder.build());
             return true;
@@ -195,7 +285,8 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
 
     @Override
     public boolean addEdgeMeta(EdgeMetaInfo edgeMetaInfo) {
-        AddEdgeMetaRequest.Builder builder = AddEdgeMetaRequest.newBuilder().setEdgeMeta(ByteString.copyFrom(edgeMetaInfo.getBytes()));
+        AddEdgeMetaRequest.Builder builder = AddEdgeMetaRequest.newBuilder()
+                .setEdgeMeta(ByteString.copyFrom(edgeMetaInfo.getBytes()));
         try {
             AddEdgeMetaResponse response = stub.addEdgeMeta(builder.build());
             return true;
@@ -210,9 +301,9 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
         GetVertexMetaRequest.Builder builder = GetVertexMetaRequest.newBuilder().setGraph(graph).setName(name);
         try {
             GetVertexMetaResponse response = stub.getVertexMeta(builder.build());
-            return new VertexMeta(response.getResult().toByteArray());
+            return VertexMeta.getInstance(response.getResult().toByteArray(), VertexMeta.class);
         } catch (Exception e) {
-            LOG.error("add vertex meta failed!", e);
+            LOG.error("get vertex meta failed!", e);
             throw e;
         }
     }
@@ -222,19 +313,20 @@ public class RpcClient implements MetaRpcService, StorageRpcService {
         GetEdgeMetaRequest.Builder builder = GetEdgeMetaRequest.newBuilder().setGraph(graph).setName(name);
         try {
             GetEdgeMetaResponse response = stub.getEdgeMeta(builder.build());
-            return new EdgeMeta(response.getResult().toByteArray());
+            return EdgeMeta.getInstance(response.getResult().toByteArray(), EdgeMeta.class);
         } catch (Exception e) {
-            LOG.error("add vertex meta failed!", e);
+            LOG.error("get edge meta failed!", e);
             throw e;
         }
     }
 
     @Override
-    public KeyValue get(String graph, KeyValue keyValue) {
-        GetRequest request = GetRequest.newBuilder().setGraph(graph).setKey(ByteString.copyFrom(keyValue.getBytes())).build();
+    public KeyValue get(String graph, Key key) {
+        GetRequest request = GetRequest.newBuilder().setGraph(graph).setKey(ByteString.copyFrom(key.bytes()))
+                .build();
         try {
             GetResponse response = stub.getData(request);
-            return new KeyValue(response.getKeyValue().toByteArray());
+            return KeyValue.getInstance(response.getKeyValue().toByteArray(), KeyValue.class);
         } catch (Exception e) {
             LOG.error("get failed!", e);
             throw e;

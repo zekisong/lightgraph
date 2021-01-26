@@ -3,13 +3,17 @@ package com.lightgraph.graph.cluster;
 import com.lightgraph.graph.constant.GraphConstant;
 import com.lightgraph.graph.modules.consensus.ConsensusInstance;
 import com.lightgraph.graph.cluster.node.Node;
-import com.lightgraph.graph.utils.ByteUtils;
 
 import java.util.Base64;
 import java.util.Objects;
 
 public class Replication extends ConsensusInstance<Partition> {
+
     private Integer replicationIndex;
+
+    public Replication() {
+
+    }
 
     public Replication(Partition partition, Integer replicationIndex, Node location) {
         this(partition, replicationIndex);
@@ -20,12 +24,8 @@ public class Replication extends ConsensusInstance<Partition> {
         this.group = partition;
         this.replicationIndex = replicationIndex;
         this.instanceName = getName();
-        this.description = String.format("[graph:%s,partition:%d,replication:%d]", getGraphName(), getPartitionIndex(), getReplicationIndex());
-    }
-
-    public Replication(byte[] bytes) {
-        super(bytes);
-        this.replicationIndex = ByteUtils.getInt(bytes, bytes.length - ByteUtils.SIZE_INT);
+        this.description = String.format("[graph:%s,partition:%d,replication:%d]", getGraphName(), getPartitionIndex(),
+                getReplicationIndex());
     }
 
     public Node getLocation() {
@@ -56,7 +56,9 @@ public class Replication extends ConsensusInstance<Partition> {
 
     public String getName() {
         String g = new String(Base64.getEncoder().encode(this.group.getGraph().getBytes()));
-        String uniqName = g + GraphConstant.SPLIT_ARRAY_TOKEN + this.group.getPartitionIndex() + GraphConstant.SPLIT_ARRAY_TOKEN + replicationIndex;
+        String uniqName =
+                g + GraphConstant.SPLIT_ARRAY_TOKEN + this.group.getPartitionIndex() + GraphConstant.SPLIT_ARRAY_TOKEN
+                        + replicationIndex;
         return new String(Base64.getEncoder().encode((uniqName).getBytes()));
     }
 
@@ -73,26 +75,13 @@ public class Replication extends ConsensusInstance<Partition> {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
+        }
         ConsensusInstance other = (ConsensusInstance) obj;
         return Objects.equals(this.instanceName, other.getInstanceName()) && this.getState() == other.getState();
-    }
-
-    @Override
-    public int size() {
-        return super.size() + ByteUtils.SIZE_INT;
-    }
-
-    @Override
-    public byte[] getBytes() {
-        int size = size();
-        byte[] data = new byte[size];
-        byte[] instance = super.getBytes();
-        System.arraycopy(instance, 0, data, 0, instance.length);
-        ByteUtils.putInt(data, data.length - 4, replicationIndex);
-        return data;
     }
 }

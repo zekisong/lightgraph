@@ -4,8 +4,10 @@ import com.lightgraph.graph.constant.GraphConstant;
 import com.lightgraph.graph.exception.GraphException;
 import com.lightgraph.graph.meta.cluster.GraphMeta;
 import com.lightgraph.graph.modules.storage.BackendStorageHandler;
+import com.lightgraph.graph.modules.storage.Key;
 import com.lightgraph.graph.modules.storage.KeyValue;
 import com.lightgraph.graph.utils.ByteUtils;
+import java.util.stream.Stream;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -25,7 +27,9 @@ public class MetaManager {
         CompletableFuture.supplyAsync(() -> {
             while (true) {
                 try {
-                    byte[] maxID = metaStorage.get(new KeyValue(GraphConstant.META_ID_KEY.getBytes(), "".getBytes())).getValue();
+                    byte[] maxID = metaStorage
+                            .get(new Key(0, GraphConstant.META_ID_KEY.getBytes()))
+                            .getValue();
                     if (maxID != null) {
                         idAssginer.set(ByteUtils.getLong(maxID, 0));
                     } else {
@@ -45,62 +49,114 @@ public class MetaManager {
         });
     }
 
-    public synchronized long saveMeta(ElementMeta meta) {
+    public synchronized long saveGraphMeta(ElementMeta meta) {
         long id = aquireID();
         try {
-            byte[] maxID = new byte[ByteUtils.SIZE_LONG];
-            ByteUtils.putLong(maxID, 0, id);
-            metaStorage.set(new KeyValue(GraphConstant.META_ID_KEY.getBytes(), "".getBytes(), maxID));
+            metaStorage.set(new KeyValue(GraphConstant.META_ID_KEY.getBytes(), ByteUtils.longToBytes(id)));
         } catch (IOException e) {
             throw new GraphException("save meta failed!", e);
         }
         meta.setId(id);
         meta.setCreateTime(System.currentTimeMillis());
-        for (KeyValue kv : meta.toKVS()) {
-            try {
+        try {
+            for (KeyValue kv : meta.toMutations()) {
                 metaStorage.set(kv);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return -1;
             }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return -1;
         }
         return id;
     }
 
+    public synchronized long saveLabelMeta(LabelMeta meta) {
+        long labelId = aquireID();
+        long maxId = labelId;
+        long time = System.currentTimeMillis();
+        for (PropertyMeta pm : meta.getProperties()) {
+            maxId = aquireID();
+            pm.setId(maxId);
+            pm.setCreateTime(time);
+        }
+        try {
+            byte[] maxID = new byte[ByteUtils.SIZE_LONG];
+            ByteUtils.putLong(maxID, 0, maxId);
+            metaStorage.set(new KeyValue(GraphConstant.META_ID_KEY.getBytes(), maxID));
+        } catch (IOException e) {
+            throw new GraphException("save meta failed!", e);
+        }
+        meta.setId(labelId);
+        meta.setCreateTime(time);
+        try {
+            for (KeyValue kv : meta.toMutations()) {
+                metaStorage.set(kv);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return -1;
+        }
+        return labelId;
+    }
+
     public GraphMeta getGraphMeta(String name) {
-        List<KeyValue> keyValues = null;
+        KeyValue keyValue = null;
         try {
-            keyValues = metaStorage.scan(GraphMeta.getKey(name));
+            keyValue = metaStorage.get(GraphMeta.makeKey(name));
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return new GraphMeta(keyValues);
+        return GraphMeta.getInstance(keyValue, GraphMeta.class);
     }
 
-    public VertexMeta getVertexMeta(String graph, String name) {
-        List<KeyValue> keyValues = null;
+    public LabelMeta getLabelMetaById(Long id, LabelType type) {
+        KeyValue keyValue;
         try {
-            keyValues = metaStorage.scan(VertexMeta.getKey(graph, name));
-            if (keyValues != null && keyValues.size() > 0) {
-                return new VertexMeta(keyValues);
+            Key indexKey = LabelMeta.getIndexKey(id);
+            KeyValue indexKv = metaStorage.get(indexKey);
+            keyValue = metaStorage.get(Key.warp(indexKv.getValue()));
+            if (keyValue.getValue() == null) {
+                return null;
+            } else {
+                switch (type) {
+                    case EDGE:
+                        return EdgeMeta.getInstance(keyValue, EdgeMeta.class);
+                    case VERTEX:
+                        return VertexMeta.getInstance(keyValue, VertexMeta.class);
+                    default:
+                        throw new RuntimeException("label type not support!");
+                }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new GraphException("get label meta failed!", e);
         }
-        return null;
     }
 
-    public EdgeMeta getEdgeMeta(String graph, String name) {
-        List<KeyValue> keyValues = null;
+    public VertexMeta getVertexMeta(Long graphId, String name) {
+        KeyValue keyValue;
         try {
-            keyValues = metaStorage.scan(EdgeMeta.getKey(graph, name));
-            if (keyValues != null && keyValues.size() > 0) {
-                return new EdgeMeta(keyValues);
+            keyValue = metaStorage.get(LabelMeta.makeKey(MetaType.VERTEX, graphId, name));
+            if (keyValue.getValue() == null) {
+                return null;
+            } else {
+                return VertexMeta.getInstance(keyValue, VertexMeta.class);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new GraphException("get vertex meta failed!", e);
         }
-        return null;
+    }
+
+    public EdgeMeta getEdgeMeta(Long graphId, String name) {
+        KeyValue keyValue;
+        try {
+            keyValue = metaStorage.get(EdgeMeta.makeKey(MetaType.EDGE, graphId, name));
+            if (keyValue.getValue() == null) {
+                return null;
+            } else {
+                return EdgeMeta.getInstance(keyValue, EdgeMeta.class);
+            }
+        } catch (IOException e) {
+            throw new GraphException("get edge meta failed!", e);
+        }
     }
 
     public synchronized long aquireID() {
@@ -110,24 +166,49 @@ public class MetaManager {
     public List<GraphMeta> listGraphMeta() {
         List<GraphMeta> metas = new ArrayList<>();
         try {
-            List<KeyValue> keyValues = metaStorage.scan(GraphMeta.getKey(""));
-            Map<String, List<KeyValue>> graphMap = new HashMap();
-            keyValues.stream().forEach(keyValue -> {
-                String graphName = GraphMeta.getGraphName(keyValue.getKey());
-                if (graphMap.containsKey(graphName)) {
-                    graphMap.get(graphName).add(keyValue);
-                } else {
-                    List<KeyValue> kvs = new ArrayList<>();
-                    kvs.add(keyValue);
-                    graphMap.put(graphName, kvs);
-                }
-            });
-            for (List<KeyValue> kvs : graphMap.values()) {
-                metas.add(new GraphMeta(kvs));
+            Iterator<KeyValue> it = metaStorage.scan(GraphMeta.makeGraphScanKey());
+            List<KeyValue> kvs = new ArrayList<>();
+            while (it.hasNext()) {
+                kvs.add(it.next());
             }
+            kvs.stream().forEach(keyValue -> {
+                GraphMeta meta = GraphMeta.getInstance(keyValue, GraphMeta.class);
+                metas.add(meta);
+            });
         } catch (IOException e) {
             e.printStackTrace();
         }
         return metas;
     }
+
+    public List<LabelMeta> listLabelMeta(String graph, MetaType metaType) {
+        List<LabelMeta> metas = new ArrayList<>();
+        try {
+            GraphMeta graphMeta = getGraphMeta(graph);
+            Iterator<KeyValue> it = metaStorage.scan(LabelMeta.makeLabelScanKey(metaType, graphMeta.getId()));
+            List<KeyValue> kvs = new ArrayList<>();
+            while (it.hasNext()) {
+                kvs.add(it.next());
+            }
+            kvs.stream().forEach(keyValue -> {
+                switch (metaType) {
+                    case EDGE:
+                        EdgeMeta em = EdgeMeta.getInstance(keyValue, EdgeMeta.class);
+                        metas.add(em);
+                        break;
+                    case VERTEX:
+                        VertexMeta vm = VertexMeta.getInstance(keyValue, VertexMeta.class);
+                        metas.add(vm);
+                        break;
+                    default:
+                        throw new GraphException("not support meta type!");
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return metas;
+    }
+
+
 }

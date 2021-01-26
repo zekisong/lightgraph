@@ -3,6 +3,7 @@ package raft.log;
 import java.nio.ByteBuffer;
 
 public class ShortSafeBuffer {
+
     private static volatile ThreadLocal<ByteBuffer> TLB = new ThreadLocal<>();
 
     public static ByteBuffer getTLB() {

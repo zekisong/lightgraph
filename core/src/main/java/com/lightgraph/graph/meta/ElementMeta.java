@@ -1,33 +1,21 @@
 package com.lightgraph.graph.meta;
 
-import com.lightgraph.graph.constant.GraphConstant;
+import com.lightgraph.graph.modules.storage.Key;
 import com.lightgraph.graph.modules.storage.KeyValue;
-import com.lightgraph.graph.utils.ByteUtils;
 
+import com.lightgraph.graph.writable.Writable;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class ElementMeta implements Meta {
+public abstract class ElementMeta extends Writable implements Meta {
+
     protected MetaType type;
     protected String name;
-    protected long createTime;
-    protected long id;
+    protected Long createTime;
+    protected Long id;
     protected transient volatile MetaState state;
 
-    public ElementMeta(byte[] bytes) {
-        int pos = ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX;
-        type = MetaType.valueOf(ByteUtils.getByte(bytes, pos));
-        pos = pos + 1;
-        int nameSize = ByteUtils.getInt(bytes, pos);
-        pos = pos + ByteUtils.SIZE_INT;
-        name = ByteUtils.getString(bytes, pos, nameSize);
-        pos = pos + nameSize;
-        createTime = ByteUtils.getLong(bytes, pos);
-        pos = pos + ByteUtils.SIZE_LONG;
-        id = ByteUtils.getLong(bytes, pos);
-    }
-
-    public ElementMeta(List<KeyValue> keyValues) {
+    public ElementMeta() {
     }
 
     public ElementMeta(String name, MetaType type) {
@@ -47,11 +35,11 @@ public abstract class ElementMeta implements Meta {
         this.name = name;
     }
 
-    public long getCreateTime() {
+    public Long getCreateTime() {
         return createTime;
     }
 
-    public void setCreateTime(long createTime) {
+    public void setCreateTime(Long createTime) {
         this.createTime = createTime;
     }
 
@@ -59,35 +47,12 @@ public abstract class ElementMeta implements Meta {
         this.state = state;
     }
 
-    public long getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(Long id) {
         this.id = id;
-    }
-
-    @Override
-    public byte[] getBytes() {
-        int size = size();
-        byte[] data = new byte[size];
-        int pos = ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX;
-        pos = ByteUtils.put(data, pos, type.getValue());
-        pos = ByteUtils.putInt(data, pos, name.length());
-        pos = ByteUtils.putString(data, pos, name);
-        pos = ByteUtils.putLong(data, pos, createTime);
-        ByteUtils.putLong(data, pos, id);
-        return data;
-    }
-
-    @Override
-    public int size() {
-        return ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX
-                + ByteUtils.SIZE_BYTE
-                + ByteUtils.SIZE_INT
-                + name.length()
-                + ByteUtils.SIZE_LONG
-                + ByteUtils.SIZE_LONG;
     }
 
     @Override
@@ -95,19 +60,38 @@ public abstract class ElementMeta implements Meta {
         return "name:" + name + ",metaType:" + type + ",createTime:" + createTime + ",id:" + id;
     }
 
-    protected abstract byte[] key();
+    protected abstract Key key();
 
-    public List<KeyValue> toKVS() {
-        List<KeyValue> result = new ArrayList<>();
-        byte[] key = key();
-        byte[] time = new byte[ByteUtils.SIZE_LONG];
-        ByteUtils.putLong(time, 0, createTime);
-        byte[] idb = new byte[ByteUtils.SIZE_LONG];
-        ByteUtils.putLong(idb, 0, id);
-        KeyValue timeKV = new KeyValue(key, new byte[]{'t'}, time);
-        KeyValue idKV = new KeyValue(key, new byte[]{'i'}, idb);
-        result.add(timeKV);
-        result.add(idKV);
+    public static Key getIndexKey(Object... values) {
+        if (values.length < 1) {
+            throw new RuntimeException("index value must more than 0.");
+        }
+        Long id = (Long) values[0];
+        return new Key(MetaType.INDEX.getValue(), id);
+    }
+
+    @Override
+    public List<Key> indexKeys() {
+        List<Key> result = new ArrayList<>();
+        result.add(getIndexKey(id));
         return result;
+    }
+
+    @Override
+    public List<KeyValue> toMutations() {
+        Key key = key();
+        List<KeyValue> mutation = new ArrayList<>();
+        mutation.add(new KeyValue(key, getBytes()));
+        List<Key> indexkeys = indexKeys();
+        if (indexkeys != null) {
+            for (Key indexkey : indexkeys) {
+                mutation.add(new KeyValue(indexkey, key.bytes()));
+            }
+        }
+        return mutation;
+    }
+
+    public static <T> T getInstance(KeyValue keyValue, Class<T> clazz) {
+        return getInstance(keyValue.getValue(), clazz);
     }
 }

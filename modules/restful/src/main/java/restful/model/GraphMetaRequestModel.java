@@ -3,6 +3,7 @@ package restful.model;
 import java.io.Serializable;
 
 public class GraphMetaRequestModel implements Serializable {
+
     private int partition;
     private int replicas;
 

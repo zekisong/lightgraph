@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ClusterContext {
+
     private static Log LOG = LogFactory.getLog(ClusterContext.class);
     private volatile Node leader;
     private Map<String, Node> nodes = new ConcurrentHashMap<>();
@@ -18,10 +19,11 @@ public class ClusterContext {
     private volatile AtomicLong version = new AtomicLong(0);
 
     public boolean isEmpty() {
-        if (leader == null && nodes.size() == 0 && routting.size() == 0)
+        if (leader == null && nodes.size() == 0 && routting.size() == 0) {
             return true;
-        else
+        } else {
             return false;
+        }
     }
 
     public Node getLeader() {

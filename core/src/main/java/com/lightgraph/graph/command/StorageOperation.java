@@ -4,7 +4,8 @@ import com.lightgraph.graph.exception.GraphException;
 
 public enum StorageOperation {
     PUT((byte) 1),
-    DELETE((byte) 2);
+    DELETE((byte) 2),
+    BATCH_PUT((byte) 3);
 
     private byte OP;
 
@@ -22,6 +23,8 @@ public enum StorageOperation {
                 return PUT;
             case 2:
                 return DELETE;
+            case 3:
+                return BATCH_PUT;
             default:
                 throw new GraphException("storage not support this operation:" + op);
         }

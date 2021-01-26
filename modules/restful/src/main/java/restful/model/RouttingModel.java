@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 public class RouttingModel {
+
     private Map<String, List<PartitionModel>> routting = new HashMap<>();
 
     public Map<String, List<PartitionModel>> getRoutting() {
@@ -48,6 +49,7 @@ public class RouttingModel {
     }
 
     class PartitionModel {
+
         private Integer PID;
         private List<ReplicationModel> replications = new ArrayList<>();
 
@@ -74,6 +76,7 @@ public class RouttingModel {
     }
 
     class ReplicationModel {
+
         private Integer RID;
         private String location;
         private ConsensusInstanceState state;

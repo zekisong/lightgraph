@@ -10,6 +10,7 @@ import java.util.List;
 
 @XmlRootElement
 public class ClusterModel {
+
     private String leader = "NOT FOUND";
     private long version = 0;
     private List<NodeModel> nodes = new ArrayList<>();
@@ -22,10 +23,11 @@ public class ClusterModel {
         }
         version = manager.getNodeVersion();
         Node masterLeader = manager.getLeader();
-        if (masterLeader != null)
+        if (masterLeader != null) {
             this.leader = masterLeader.getName();
-        else
+        } else {
             this.leader = "NOT FOUND";
+        }
     }
 
     public String getLeader() {

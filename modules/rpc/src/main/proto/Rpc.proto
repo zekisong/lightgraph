@@ -51,8 +51,18 @@ message PutResponse{
   bool success = 1;
 }
 
+message BatchPutRequest{
+  string graph = 1;
+  bytes replication = 2;
+  bytes batch = 3;
+}
+
+message BatchPutResponse{
+  bool success = 1;
+}
+
 message GetRequest{
-  string graph  = 1;
+  string graph = 1;
   bytes key = 2;
 }
 
@@ -61,16 +71,17 @@ message GetResponse{
 }
 
 message PrefixScanRequest{
-  string graph  = 1;
+  string graph = 1;
   bytes prefix = 2;
 }
 
 message PrefixScanResponse{
   repeated bytes result = 1;
+  bool hasMore = 2;
 }
 
 message GetGraphMetaRequest{
-  string graph  = 1;
+  string graph = 1;
 }
 
 message GetGraphMetaResponse{
@@ -84,8 +95,17 @@ message ListGraphMetaResponse{
   repeated bytes result = 1;
 }
 
+message ListLabelMetaRequest{
+  string graph = 1;
+  string metaType = 2;
+}
+
+message ListLabelMetaResponse{
+  repeated bytes result = 1;
+}
+
 message AddVertexMetaRequest{
-   bytes vertexMeta = 1;
+  bytes vertexMeta = 1;
 }
 
 message AddVertexMetaResponse{
@@ -93,7 +113,7 @@ message AddVertexMetaResponse{
 }
 
 message AddEdgeMetaRequest{
-   bytes edgeMeta = 1;
+  bytes edgeMeta = 1;
 }
 
 message AddEdgeMetaResponse{
@@ -101,8 +121,8 @@ message AddEdgeMetaResponse{
 }
 
 message GetVertexMetaRequest{
-  string graph  = 1;
-  string name  = 2;
+  string graph = 1;
+  string name = 2;
 }
 
 message GetVertexMetaResponse{
@@ -110,13 +130,23 @@ message GetVertexMetaResponse{
 }
 
 message GetEdgeMetaRequest{
-  string graph  = 1;
-  string name  = 2;
+  string graph = 1;
+  string name = 2;
 }
 
 message GetEdgeMetaResponse{
   bytes result = 1;
 }
+
+message GetLabelMetaByIdRequest{
+  int64 id = 1;
+  string labelType = 2;
+}
+
+message GetLabelMetaByIdResponse{
+  bytes result = 1;
+}
+
 
 message AddReplicationsRequest{
   repeated bytes replications = 1;
@@ -143,12 +173,15 @@ service RpcService {
   rpc updateReplication(UpdateReplicationRequest) returns (UpdateReplicationResponse);
   rpc getNodeVersion(GetNodeVersionRequest) returns (GetNodeVersionResponse);
   rpc getData(GetRequest) returns (GetResponse);
-  rpc prefixScan(PrefixScanRequest) returns (PrefixScanResponse);
+  rpc prefixScan(PrefixScanRequest) returns (stream PrefixScanResponse);
   rpc getGraphMeta(GetGraphMetaRequest) returns (GetGraphMetaResponse);
   rpc listGraphMeta(ListGraphMetaRequest) returns (ListGraphMetaResponse);
+  rpc listLabelMeta(ListLabelMetaRequest) returns (ListLabelMetaResponse);
   rpc addVertexMeta(AddVertexMetaRequest) returns (AddVertexMetaResponse);
   rpc addEdgeMeta(AddEdgeMetaRequest) returns (AddEdgeMetaResponse);
   rpc getVertexMeta(GetVertexMetaRequest) returns (GetVertexMetaResponse);
   rpc getEdgeMeta(GetEdgeMetaRequest) returns (GetEdgeMetaResponse);
+  rpc GetLabelMetaById(GetLabelMetaByIdRequest) returns (GetLabelMetaByIdResponse);
   rpc putData(PutRequest) returns (PutResponse);
+  rpc batchPut(BatchPutRequest) returns (BatchPutResponse);
 }

@@ -1,6 +1,7 @@
 package com.lightgraph.graph.utils;
 
 public class MurmurHashUtils {
+
     public static int hash(byte[] bytes, int offset, int length, int initval) {
         final int c1 = 0xcc9e2d51;
         final int c2 = 0x1b873593;

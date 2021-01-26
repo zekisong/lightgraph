@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ByteUtils {
+
     public static int RESERVED_BYTE_SIZE＿FOR_TX = 1;
     public static final int SIZE_BYTE = 1;
     public static final int SIZE_SHORT = 2;
@@ -60,6 +61,12 @@ public final class ByteUtils {
         return offset + SIZE_LONG;
     }
 
+    public static byte[] longToBytes(long value) {
+        byte[] bytes = new byte[SIZE_LONG];
+        putLong(bytes, 0, value);
+        return bytes;
+    }
+
     public static long getLong(byte[] bytes, int offset) {
         long l = 0;
         for (int i = offset; i < offset + SIZE_LONG; i++) {
@@ -109,8 +116,9 @@ public final class ByteUtils {
         while (((b = buffer.get()) & 0x80) != 0) {
             value |= (b & 0x7f) << i;
             i += 7;
-            if (i > 28)
+            if (i > 28) {
                 throw illegalVarintException(value);
+            }
         }
         value |= b << i;
         return value;
@@ -128,8 +136,9 @@ public final class ByteUtils {
         while (((b = buffer.get()) & 0x80) != 0) {
             value |= (b & 0x7f) << i;
             i += 7;
-            if (i > 63)
+            if (i > 63) {
                 throw illegalVarlongException(value);
+            }
         }
         value |= b << i;
         return (value >>> 1) ^ -(value & 1);
@@ -204,8 +213,9 @@ public final class ByteUtils {
             return false;
         }
         for (int i = 0; i < perfix.length; i++) {
-            if (bytes[i] != perfix[i])
+            if (bytes[i] != perfix[i]) {
                 return false;
+            }
         }
         return true;
     }

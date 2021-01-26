@@ -1,42 +1,19 @@
 package com.lightgraph.graph.graph;
 
-import com.lightgraph.graph.utils.ByteUtils;
-import com.lightgraph.graph.writable.Sizeable;
 import com.lightgraph.graph.writable.Writable;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class VertexMetaInfo implements Writable, Sizeable {
+public class VertexMetaInfo extends Writable {
+
     private String graph;
     private String name;
     private String key;
+    private List<String> indices = new ArrayList<>();
     private List<PropertyMetaInfo> properties = new ArrayList<>();
 
     public VertexMetaInfo() {
-    }
-
-    public VertexMetaInfo(byte[] bytes) {
-        int pos = ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX;
-        int graphSize = ByteUtils.getInt(bytes, pos);
-        pos = pos + ByteUtils.SIZE_INT;
-        graph = ByteUtils.getString(bytes, pos, graphSize);
-        pos = pos + graphSize;
-        int nameSize = ByteUtils.getInt(bytes, pos);
-        pos = pos + ByteUtils.SIZE_INT;
-        name = ByteUtils.getString(bytes, pos, nameSize);
-        pos = pos + nameSize;
-        int keySize = ByteUtils.getInt(bytes, pos);
-        pos = pos + ByteUtils.SIZE_INT;
-        key = ByteUtils.getString(bytes, pos, keySize);
-        pos = pos + keySize;
-        while (pos < bytes.length) {
-            int psize = ByteUtils.getInt(bytes, pos);
-            pos = pos + ByteUtils.SIZE_INT;
-            byte[] pb = ByteUtils.getBytes(bytes, pos, psize);
-            pos = pos + psize;
-            properties.add(new PropertyMetaInfo(pb));
-        }
     }
 
     public String getGraph() {
@@ -71,37 +48,11 @@ public class VertexMetaInfo implements Writable, Sizeable {
         this.properties = properties;
     }
 
-    @Override
-    public byte[] getBytes() {
-        int size = size();
-        byte[] data = new byte[size];
-        int pos = ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX;
-        pos = ByteUtils.putInt(data, pos, graph.length());
-        pos = ByteUtils.putString(data, pos, graph);
-        pos = ByteUtils.putInt(data, pos, name.length());
-        pos = ByteUtils.putString(data, pos, name);
-        pos = ByteUtils.putInt(data, pos, key.length());
-        pos = ByteUtils.putString(data, pos, key);
-        for (PropertyMetaInfo info : properties) {
-            pos = ByteUtils.putInt(data, pos, info.size());
-            pos = ByteUtils.putBytes(data, pos, info.getBytes());
-        }
-        return data;
+    public List<String> getIndices() {
+        return indices;
     }
 
-    @Override
-    public int size() {
-        int propertiesSize = 0;
-        for (PropertyMetaInfo info : properties) {
-            propertiesSize = propertiesSize + +ByteUtils.SIZE_INT + info.size();
-        }
-        return ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX
-                + ByteUtils.SIZE_INT
-                + graph.length()
-                + ByteUtils.SIZE_INT
-                + name.length()
-                + ByteUtils.SIZE_INT
-                + key.length()
-                + propertiesSize;
+    public void setIndices(List<String> indices) {
+        this.indices = indices;
     }
 }

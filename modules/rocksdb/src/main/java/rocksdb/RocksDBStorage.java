@@ -3,15 +3,15 @@ package rocksdb;
 import com.lightgraph.graph.constant.GraphConstant;
 import com.lightgraph.graph.cluster.Replication;
 import com.lightgraph.graph.modules.storage.BackendStorageHandler;
+import com.lightgraph.graph.modules.storage.Key;
 import com.lightgraph.graph.modules.storage.KeyValue;
-import com.lightgraph.graph.utils.ByteUtils;
+import java.util.Iterator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.rocksdb.*;
 import rocksdb.exception.BackendException;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 public class RocksDBStorage implements BackendStorageHandler {
@@ -55,49 +55,47 @@ public class RocksDBStorage implements BackendStorageHandler {
     @Override
     public void set(KeyValue keyValue) throws BackendException {
         try {
-            rocksDB.put(encodeKey(keyValue), keyValue.getValue());
+            rocksDB.put(keyValue.getKey().bytes(), keyValue.getValue());
         } catch (RocksDBException e) {
             throw new BackendException("set error!", e);
         }
     }
 
     @Override
-    public void delete(byte[] k) throws IOException {
+    public void batchSet(List<KeyValue> keyValues) throws IOException {
+        WriteBatch batch = new WriteBatch();
+        try {
+            for (KeyValue kv : keyValues) {
+                batch.put(kv.getKey().bytes(), kv.getValue());
+            }
+            rocksDB.write(new WriteOptions(), batch);
+        } catch (RocksDBException e) {
+            throw new BackendException("batch set error!", e);
+        }
+    }
+
+    @Override
+    public void delete(byte[] k) {
 
     }
 
     @Override
-    public KeyValue get(KeyValue keyValue) throws IOException {
+    public KeyValue get(Key key) throws IOException {
         try {
-            byte[] v = rocksDB.get(encodeKey(keyValue));
-            keyValue.setValue(v);
-            return keyValue;
+            byte[] v = rocksDB.get(key.bytes());
+            return new KeyValue(key, v);
         } catch (RocksDBException e) {
             throw new BackendException("get error!", e);
         }
     }
 
     @Override
-    public List<KeyValue> scan(KeyValue keyValue) {
-        byte[] start = keyValue.getKey();
+    public Iterator<KeyValue> scan(Key start) {
         ReadOptions ro = new ReadOptions();
         ro.setTotalOrderSeek(true);
         RocksIterator iterator = rocksDB.newIterator(ro);
-        iterator.seek(start);
-        List<KeyValue> result = new ArrayList<>();
-        while (iterator.isValid()) {
-            byte[] key = iterator.key();
-            byte[] value = iterator.value();
-            if (ByteUtils.startWith(key, start)) {
-                KeyValue kv = decodeKey(key);
-                kv.setValue(value);
-                result.add(kv);
-                iterator.next();
-            } else {
-                break;
-            }
-        }
-        return result;
+        iterator.seek(start.bytes());
+        return new MapIterator(iterator, start.bytes()).map(kv -> kv);
     }
 
     @Override
@@ -108,16 +106,5 @@ public class RocksDBStorage implements BackendStorageHandler {
             throw new BackendException("multi get error!", e);
         }
         return null;
-    }
-
-    public static byte[] encodeKey(KeyValue keyValue) {
-        return ByteUtils.concat(keyValue.getKey(), GraphConstant.SEC_KEY_DELIMITER.getBytes(), keyValue.getSecKey());
-    }
-
-    public static KeyValue decodeKey(byte[] key) {
-        List<byte[]> bytes = ByteUtils.split(key, GraphConstant.SEC_KEY_DELIMITER.getBytes());
-        byte[] k = bytes.get(0);
-        byte[] secK = bytes.size() > 1 ? bytes.get(1) : null;
-        return new KeyValue(k, secK, null);
     }
 }

@@ -4,6 +4,9 @@ public class GraphConstant {
 
     public static final String GRAPH_HOME = System.getProperty("graph_home");
 
+    public static final String GRAPH_SERIALIZE_CLAZZ = "graph.serialize.clazz";
+    public static final String GRAPH_SERIALIZE_CLAZZ_DEFAULT = "serde.plugin.kryo.KryoSerde";
+
     public static final String GRAPH_NETWORK_MODULE = "graph.network.module";
     public static final String GRAPH_NETWORK_MODULE_DEFAULT = "network.NetworkModuleImpl";
 
@@ -26,7 +29,8 @@ public class GraphConstant {
     public static final short SERVER_PORT_NUM_DEFAULT = 8899;
 
     public static final String GRAPH_MASTER_SERVERS = "graph.master.servers";
-    public static final String GRAPH_MASTER_SERVERS_DEFAULT = SERVER_ADDR_PREFIX_DEFAULT + ":" + SERVER_PORT_NUM_DEFAULT;
+    public static final String GRAPH_MASTER_SERVERS_DEFAULT =
+            SERVER_ADDR_PREFIX_DEFAULT + ":" + SERVER_PORT_NUM_DEFAULT;
 
     public static final String META_TABLE_NAME = "META";
     public static final String META_ID_KEY = "id";
@@ -37,6 +41,6 @@ public class GraphConstant {
     public static final String FILE_SUFFIX_TOKEN = ".";
     public static final String SPLIT_FILE_SUFFIX_TOKEN = "\\.";
 
-    public static final String KEY_DELIMITER = "%";
-    public static final String SEC_KEY_DELIMITER = "#";
+    public static final byte[] KEY_DELIMITER = "%".getBytes();
+    public static final byte[] SEC_KEY_DELIMITER = "#".getBytes();
 }

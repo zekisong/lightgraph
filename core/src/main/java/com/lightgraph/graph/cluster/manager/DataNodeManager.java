@@ -6,6 +6,9 @@ import com.lightgraph.graph.cluster.Replication;
 import com.lightgraph.graph.graph.EdgeMetaInfo;
 import com.lightgraph.graph.graph.VertexMetaInfo;
 import com.lightgraph.graph.meta.EdgeMeta;
+import com.lightgraph.graph.meta.LabelMeta;
+import com.lightgraph.graph.meta.LabelType;
+import com.lightgraph.graph.meta.MetaType;
 import com.lightgraph.graph.meta.VertexMeta;
 import com.lightgraph.graph.meta.cluster.GraphMeta;
 import com.lightgraph.graph.modules.consensus.ConsensusIO;
@@ -70,12 +73,22 @@ public class DataNodeManager extends NodeManager {
     }
 
     @Override
+    public LabelMeta getLabelMetaById(Long id, LabelType type) {
+        throw new GraphException("should not reach here!");
+    }
+
+    @Override
     public GraphMeta getGraphMeta(String graph) {
         throw new GraphException("should not reach here!");
     }
 
     @Override
     public List<GraphMeta> listGraphMeta() {
+        throw new GraphException("should not reach here!");
+    }
+
+    @Override
+    public List<LabelMeta> listLabelMeta(String graph, MetaType metaType) {
         throw new GraphException("should not reach here!");
     }
 

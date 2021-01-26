@@ -5,6 +5,7 @@ import com.lightgraph.graph.meta.DataType;
 import java.util.List;
 
 public class VertexMetaModel {
+
     private String key;
     private List<PropertyMetaModel> properties;
 
@@ -25,6 +26,7 @@ public class VertexMetaModel {
     }
 
     public static class PropertyMetaModel {
+
         private String name;
         private DataType dataType;
         private Object defaultValue;

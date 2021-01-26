@@ -5,15 +5,10 @@ import com.lightgraph.graph.cluster.node.Node;
 import com.lightgraph.graph.cluster.manager.NodeManager;
 import com.lightgraph.graph.graph.EdgeMetaInfo;
 import com.lightgraph.graph.graph.VertexMetaInfo;
-import com.lightgraph.graph.meta.PropertyMeta;
-import com.lightgraph.graph.meta.VertexMeta;
 import com.lightgraph.graph.modules.storage.BackendStorageHandler;
-import com.lightgraph.graph.modules.storage.KeyValue;
 import com.lightgraph.graph.settings.GraphSetting;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
-import java.io.IOException;
 
 public class MetaCommandRunner extends CommandRunner {
 
@@ -36,36 +31,36 @@ public class MetaCommandRunner extends CommandRunner {
         String info = "run meta command=>" + op + "\t";
         switch (op) {
             case SET_MASTER_LEADER:
-                Node node = new Node(r);
+                Node node = Node.getInstance(r, 1, r.length - 1, Node.class);
                 info = info + node.toString();
                 manager.setLeaderInner(node);
                 break;
             case ADD_NODE:
-                node = new Node(r);
+                node = Node.getInstance(r, 1, r.length - 1, Node.class);
                 info = info + node.toString();
                 manager.joinToClusterInner(node);
                 break;
             case ADD_REPLICATION:
-                Replication replication = new Replication(r);
+                Replication replication = Replication.getInstance(r, 1, r.length - 1, Replication.class);
                 info = info + replication.getDescription();
                 manager.addReplicationInner(replication);
                 break;
             case UPDATE_REPLICATION:
-                replication = new Replication(r);
+                replication = Replication.getInstance(r, 1, r.length - 1, Replication.class);
                 info = info + replication.getDescription();
                 manager.updateReplicationInner(replication);
                 break;
             case CREATE_GRAPH:
-                GraphSetting setting = new GraphSetting(r);
+                GraphSetting setting = GraphSetting.getInstance(r, 1, r.length - 1, GraphSetting.class);
                 info = info + setting.toString();
                 manager.createGraphInner(setting);
                 break;
             case ADD_VERTEX_META:
-                VertexMetaInfo vmi = new VertexMetaInfo(r);
+                VertexMetaInfo vmi = VertexMetaInfo.getInstance(r, 1, r.length - 1, VertexMetaInfo.class);
                 manager.addVertexMetaInner(vmi);
                 break;
             case ADD_EDGE_META:
-                EdgeMetaInfo emi = new EdgeMetaInfo(r);
+                EdgeMetaInfo emi = EdgeMetaInfo.getInstance(r, 1, r.length - 1, EdgeMetaInfo.class);
                 manager.addEdgeMetaInner(emi);
                 break;
         }

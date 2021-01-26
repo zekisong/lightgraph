@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public class TimeWheel {
+
     Log LOG = LogFactory.getLog(TimeWheel.class);
 
     private int numSlots = 10;
@@ -55,26 +56,31 @@ public class TimeWheel {
     public void advanceTime() {
         cursor = (cursor + 1) % numSlots;
         TaskNode root = slots[cursor];
-        if (root.next == root)
+        if (root.next == root) {
             return;
+        }
         TaskNode tmp = root;
         synchronized (root) {
             while (true) {
                 tmp = tmp.next;
-                if (tmp == root)
+                if (tmp == root) {
                     break;
+                }
                 TaskNode finalTmp = tmp;
-                if (finalTmp.isRunning())
-                    continue;
-                else
+                if (!finalTmp.isRunning()) {
                     finalTmp.setRunning(true);
-                executor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        finalTmp.run();
+                    try {
+                        executor.submit(() -> {
+                            try {
+                                finalTmp.run();
+                            } finally {
+                                finalTmp.setRunning(false);
+                            }
+                        });
+                    } catch (Exception e) {
                         finalTmp.setRunning(false);
                     }
-                });
+                }
             }
         }
     }
@@ -97,21 +103,20 @@ public class TimeWheel {
     public TaskNode addTask(TaskNode taskNode) {
         int cursor = this.cursor;
         taskNode.setSlotKey(cursor);
-        if (taskNode.getTask() == null)
+        if (taskNode.getTask() == null) {
             throw new RuntimeException("invalid task!");
+        }
         TaskNode root = slots[cursor];
-        while (true) {
-            synchronized (root) {
-                TaskNode tail = root.pre;
-                TaskNode curTail = root.pre;
-                if (tail == curTail) {
-                    tail.next = taskNode;
-                    taskNode.pre = tail;
-                    taskNode.next = root;
-                    root.pre = taskNode;
-                    break;
-                }
+        synchronized (root) {
+            if (taskNode.next != null) {
+                taskNode.pre.next = taskNode.next;
+                taskNode.next.pre = taskNode.pre;
             }
+            TaskNode tail = root.pre;
+            tail.next = taskNode;
+            taskNode.pre = tail;
+            taskNode.next = root;
+            root.pre = taskNode;
         }
         LOG.info(String.format("add task successful in slot:%s\t desc:%s", cursor, taskNode.getTask().description()));
         return taskNode;
@@ -119,17 +124,20 @@ public class TimeWheel {
 
     public void removeTask(TaskNode task) {
         int oldSlotKey = task.getSlotKey();
-        if (task.getTask() == null)
+        if (task.getTask() == null) {
             throw new RuntimeException("should not arrive here!");
-        else {
+        } else {
             TaskNode root = findRoot(task);
             synchronized (root) {
                 task.pre.next = task.next;
                 task.next.pre = task.pre;
+                task.next = null;
+                task.pre = null;
                 LOG.info("remove node for slot " + task.getSlotKey());
             }
         }
-        LOG.info(String.format("remove task successful in slot:%s\t desc:%s", oldSlotKey, task.getTask().description()));
+        LOG.info(
+                String.format("remove task successful in slot:%s\t desc:%s", oldSlotKey, task.getTask().description()));
     }
 
     public TaskNode findRoot(TaskNode task) {

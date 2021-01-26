@@ -5,4 +5,5 @@ package com.lightgraph.graph.mgmt.threads;
  * query、bulk、manager...
  */
 public class Threads {
+
 }

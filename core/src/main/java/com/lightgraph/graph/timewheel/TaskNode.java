@@ -60,8 +60,9 @@ public class TaskNode {
 
     public void run() {
         long current = System.currentTimeMillis();
-        if (start + delay > current)
+        if (start + delay > current || task == null) {
             return;
+        }
         try {
             listeners.forEach(l -> l.onTaskStart());
             task.doTask();

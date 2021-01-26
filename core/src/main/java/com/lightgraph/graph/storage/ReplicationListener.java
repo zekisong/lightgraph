@@ -29,7 +29,8 @@ public class ReplicationListener extends AbstractLeaderChangeListener {
         try {
             boolean ret = metaRpcService.updateReplication((Replication) this.instance);
             if (ret) {
-                LOG.info(this.instance.getDescription() + "\tstate:" + this.instance.getState() + "\tupdate succcessful!");
+                LOG.info(this.instance.getDescription() + "\tstate:" + this.instance.getState()
+                        + "\tupdate succcessful!");
             } else {
                 LOG.info(this.instance.getDescription() + "\tstate:" + this.instance.getState() + "\tupdate failed!");
             }

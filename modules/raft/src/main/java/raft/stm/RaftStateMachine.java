@@ -47,6 +47,7 @@ public class RaftStateMachine {
     }
 
     public static class InternalTransition {
+
         private RaftState targetState;
         private Transition hook;
 

@@ -7,7 +7,10 @@ import com.lightgraph.graph.graph.EdgeMetaInfo;
 import com.lightgraph.graph.graph.PropertyMetaInfo;
 import com.lightgraph.graph.graph.VertexMetaInfo;
 import com.lightgraph.graph.meta.EdgeMeta;
+import com.lightgraph.graph.meta.LabelMeta;
+import com.lightgraph.graph.meta.LabelType;
 import com.lightgraph.graph.meta.MetaManager;
+import com.lightgraph.graph.meta.MetaType;
 import com.lightgraph.graph.meta.PropertyMeta;
 import com.lightgraph.graph.meta.VertexMeta;
 import com.lightgraph.graph.meta.cluster.GraphMeta;
@@ -34,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 动态集群信息维护
  */
 public class MasterNodeManager extends NodeManager implements LeaderChangeListener {
+
     private static Log LOG = LogFactory.getLog(MasterNodeManager.class);
     private ConsensusInstance instance;
     private ConsensusHandler consensusHandler;
@@ -108,12 +112,14 @@ public class MasterNodeManager extends NodeManager implements LeaderChangeListen
     @Override
     public boolean createGraphInner(GraphSetting setting) {
         String name = setting.getGraphName();
-        int partitionCount = setting.get(GraphSetting.GRAPH_PARTITION_COUNT, GraphSetting.GRAPH_PARTITION_COUNT_DEFAULT);
-        int replicationCount = setting.get(GraphSetting.GRAPH_PEPLICATION_COUNT, GraphSetting.GRAPH_PEPLICATION_COUNT_DEFAULT);
+        int partitionCount = setting
+                .get(GraphSetting.GRAPH_PARTITION_COUNT, GraphSetting.GRAPH_PARTITION_COUNT_DEFAULT);
+        int replicationCount = setting
+                .get(GraphSetting.GRAPH_PEPLICATION_COUNT, GraphSetting.GRAPH_PEPLICATION_COUNT_DEFAULT);
         GraphMeta meta = new GraphMeta(name);
         meta.setSetting(setting);
         try {
-            metaManager.saveMeta(meta);
+            metaManager.saveGraphMeta(meta);
             initRouttingTable(name, partitionCount, replicationCount);
         } catch (Exception e) {
             LOG.info("create graph failed!", e);
@@ -157,7 +163,8 @@ public class MasterNodeManager extends NodeManager implements LeaderChangeListen
             CompletableFuture.supplyAsync(() -> {
                 while (true) {
                     try {
-                        Map<Integer, Replication> metaReplications = this.context.getRoutting().get(GraphConstant.META_TABLE_NAME).get(0).getReplications();
+                        Map<Integer, Replication> metaReplications = this.context.getRoutting()
+                                .get(GraphConstant.META_TABLE_NAME).get(0).getReplications();
                         if (metaReplications.size() != masters.size()) {
                             Thread.sleep(1000);
                             continue;
@@ -193,6 +200,11 @@ public class MasterNodeManager extends NodeManager implements LeaderChangeListen
     }
 
     @Override
+    public LabelMeta getLabelMetaById(Long id, LabelType type) {
+        return metaManager.getLabelMetaById(id, type);
+    }
+
+    @Override
     public GraphMeta getGraphMeta(String graph) {
         return metaManager.getGraphMeta(graph);
     }
@@ -203,52 +215,64 @@ public class MasterNodeManager extends NodeManager implements LeaderChangeListen
     }
 
     @Override
+    public List<LabelMeta> listLabelMeta(String graph, MetaType metaType) {
+        return metaManager.listLabelMeta(graph, metaType);
+    }
+
+    @Override
     public boolean addVertexMeta(VertexMetaInfo vertexMetaInfo) {
         try {
+            VertexMeta meta = getVertexMeta(vertexMetaInfo.getGraph(), vertexMetaInfo.getName());
+            if (meta != null) {
+                throw new GraphException(String.format("vertex meta:%s already exist!", meta.getName()));
+            }
             byte[] data = attachOperation(vertexMetaInfo.getBytes(), MasterOperation.ADD_VERTEX_META);
             LOG.info("add vertex meta log:" + vertexMetaInfo.getGraph() + "\t" + vertexMetaInfo.getName());
             commandRunner.writeCommand(data);
+            return true;
         } catch (Exception e) {
-            return false;
+            throw new GraphException("add vertex meta failed!", e);
         }
-        return true;
     }
 
     @Override
     public boolean addEdgeMeta(EdgeMetaInfo edgeMetaInfo) {
         try {
+            EdgeMeta meta = getEdgeMeta(edgeMetaInfo.getGraph(), edgeMetaInfo.getName());
+            if (meta != null) {
+                throw new GraphException(String.format("edge meta:%s already exist!", meta.getName()));
+            }
             byte[] data = attachOperation(edgeMetaInfo.getBytes(), MasterOperation.ADD_EDGE_META);
-            LOG.info("add vertex meta log:" + edgeMetaInfo.getGraph() + "\t" + edgeMetaInfo.getName());
+            LOG.info("add edge meta log:" + edgeMetaInfo.getGraph() + "\t" + edgeMetaInfo.getName());
             commandRunner.writeCommand(data);
+            return true;
         } catch (Exception e) {
-            return false;
+            throw new GraphException("add edge meta failed!", e);
         }
-        return true;
     }
 
     @Override
     public boolean addEdgeMetaInner(EdgeMetaInfo edgeMetaInfo) {
         String graph = edgeMetaInfo.getGraph();
+        long graphId = getGraphMeta(graph).getId();
         EdgeMeta em = new EdgeMeta(edgeMetaInfo.getName());
-        em.setGraph(graph);
+        em.setGraphId(graphId);
         String subject = edgeMetaInfo.getSubject();
         String object = edgeMetaInfo.getObject();
-        VertexMeta sMeta = metaManager.getVertexMeta(graph, subject);
-        VertexMeta oMeta = metaManager.getVertexMeta(graph, object);
+        VertexMeta sMeta = metaManager.getVertexMeta(graphId, subject);
+        VertexMeta oMeta = metaManager.getVertexMeta(graphId, object);
         em.setSubject(sMeta.getId());
         em.setObject(oMeta.getId());
-        Set pids = new HashSet();
+        List<PropertyMeta> pms = new ArrayList<>();
         try {
             for (PropertyMetaInfo pmi : edgeMetaInfo.getProperties()) {
                 PropertyMeta pm = new PropertyMeta(pmi.getName());
-                pm.setGraph(edgeMetaInfo.getGraph());
                 pm.setDataType(pmi.getDataType());
                 pm.setDefaultValue(pmi.getDefaultValue());
-                long pid = metaManager.saveMeta(pm);
-                pids.add(pid);
+                pms.add(pm);
             }
-            em.setProperties(pids);
-            metaManager.saveMeta(em);
+            em.setProperties(pms);
+            metaManager.saveLabelMeta(em);
         } catch (Exception e) {
             LOG.error("add vertex meta failed!", e);
             return false;
@@ -258,31 +282,33 @@ public class MasterNodeManager extends NodeManager implements LeaderChangeListen
 
     @Override
     public VertexMeta getVertexMeta(String graph, String name) {
-        return metaManager.getVertexMeta(graph, name);
+        Long graphId = getGraphMeta(graph).getId();
+        return metaManager.getVertexMeta(graphId, name);
     }
 
     @Override
     public EdgeMeta getEdgeMeta(String graph, String name) {
-        return metaManager.getEdgeMeta(graph, name);
+        Long graphId = getGraphMeta(graph).getId();
+        return metaManager.getEdgeMeta(graphId, name);
     }
 
     @Override
     public boolean addVertexMetaInner(VertexMetaInfo vertexMetaInfo) {
+        String graph = vertexMetaInfo.getGraph();
+        Long graphId = getGraphMeta(graph).getId();
         VertexMeta vm = new VertexMeta(vertexMetaInfo.getName());
-        vm.setGraph(vertexMetaInfo.getGraph());
+        vm.setGraphId(graphId);
         vm.setPK(vertexMetaInfo.getKey());
-        Set pids = new HashSet();
+        List<PropertyMeta> pms = new ArrayList<>();
         try {
             for (PropertyMetaInfo pmi : vertexMetaInfo.getProperties()) {
                 PropertyMeta pm = new PropertyMeta(pmi.getName());
-                pm.setGraph(vertexMetaInfo.getGraph());
                 pm.setDataType(pmi.getDataType());
                 pm.setDefaultValue(pmi.getDefaultValue());
-                long pid = metaManager.saveMeta(pm);
-                pids.add(pid);
+                pms.add(pm);
             }
-            vm.setProperties(pids);
-            metaManager.saveMeta(vm);
+            vm.setProperties(pms);
+            metaManager.saveLabelMeta(vm);
         } catch (Exception e) {
             LOG.error("add vertex meta failed!", e);
             return false;
@@ -306,7 +332,9 @@ public class MasterNodeManager extends NodeManager implements LeaderChangeListen
                     if (GraphConstant.META_TABLE_NAME.equals(replication.getGraphName())) {
                         replication.setGroupSize(masters.size());
                     } else {
-                        int groupSize = getGraphMeta(replication.getGraphName()).getSetting().get(GraphSetting.GRAPH_PEPLICATION_COUNT, GraphSetting.GRAPH_PEPLICATION_COUNT_DEFAULT);
+                        int groupSize = getGraphMeta(replication.getGraphName()).getSetting()
+                                .get(GraphSetting.GRAPH_PEPLICATION_COUNT,
+                                        GraphSetting.GRAPH_PEPLICATION_COUNT_DEFAULT);
                         replication.setGroupSize(groupSize);
                     }
                     break;
@@ -338,8 +366,10 @@ public class MasterNodeManager extends NodeManager implements LeaderChangeListen
         if (data.length < 1) {
             throw new GraphException("command invalid!");
         } else {
-            data[0] = operation.getOP();
-            return data;
+            byte[] attactedBytes = new byte[data.length + 1];
+            System.arraycopy(data, 0, attactedBytes, 1, data.length);
+            attactedBytes[0] = operation.getOP();
+            return attactedBytes;
         }
     }
 

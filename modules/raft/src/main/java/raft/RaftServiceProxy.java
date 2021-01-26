@@ -12,8 +12,9 @@ public class RaftServiceProxy extends RaftServiceGrpc.RaftServiceImplBase {
     }
 
     public void vote(com.lightgraph.raft.proto.VoteRequest request,
-                     io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.VoteResponse> responseObserver) {
-        ConsensusInstance instance = new ConsensusInstance(request.getInstance().toByteArray());
+            io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.VoteResponse> responseObserver) {
+        ConsensusInstance instance = ConsensusInstance
+                .getInstance(request.getInstance().toByteArray(), ConsensusInstance.class);
         RaftQuorum quorum = module.getRaftQuorum(instance);
         if (quorum != null) {
             quorum.vote(request, responseObserver);
@@ -23,8 +24,9 @@ public class RaftServiceProxy extends RaftServiceGrpc.RaftServiceImplBase {
     }
 
     public void keepHeartBeat(com.lightgraph.raft.proto.HeartBeatRequest request,
-                              io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.HeartBeatResponse> responseObserver) {
-        ConsensusInstance instance = new ConsensusInstance(request.getInstance().toByteArray());
+            io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.HeartBeatResponse> responseObserver) {
+        ConsensusInstance instance = ConsensusInstance
+                .getInstance(request.getInstance().toByteArray(), ConsensusInstance.class);
         RaftQuorum quorum = module.getRaftQuorum(instance);
         if (quorum != null) {
             quorum.keepHeartBeat(request, responseObserver);
@@ -34,8 +36,9 @@ public class RaftServiceProxy extends RaftServiceGrpc.RaftServiceImplBase {
     }
 
     public void appendLog(com.lightgraph.raft.proto.AppendLogEditRequest request,
-                          io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.AppendLogEditResponse> responseObserver) {
-        ConsensusInstance instance = new ConsensusInstance(request.getInstance().toByteArray());
+            io.grpc.stub.StreamObserver<com.lightgraph.raft.proto.AppendLogEditResponse> responseObserver) {
+        ConsensusInstance instance = ConsensusInstance
+                .getInstance(request.getInstance().toByteArray(), ConsensusInstance.class);
         RaftQuorum quorum = module.getRaftQuorum(instance);
         if (quorum != null) {
             quorum.appendLog(request, responseObserver);

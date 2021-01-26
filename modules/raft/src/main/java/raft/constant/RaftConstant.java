@@ -3,6 +3,7 @@ package raft.constant;
 import com.lightgraph.graph.constant.GraphConstant;
 
 public class RaftConstant {
+
     public static final String RAFT_TIMEWHEEL_INTERVAL = "graph.timewheel.interval";
     public static final long RAFT_TIMEWHEEL_INTERVAL_DEFAULT = 50;
 

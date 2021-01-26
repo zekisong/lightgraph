@@ -1,15 +1,12 @@
 package com.lightgraph.graph.meta;
 
-import com.lightgraph.graph.modules.storage.KeyValue;
-import com.lightgraph.graph.writable.Sizeable;
-import com.lightgraph.graph.writable.Writable;
 
-import java.util.List;
+import com.lightgraph.graph.writable.Indexable;
+import com.lightgraph.graph.writable.Persistable;
 
-public interface Meta extends Writable, Sizeable {
+public interface Meta extends Persistable, Indexable {
+
     MetaState getState();
 
     String getName();
-
-    List<KeyValue> toKVS();
 }

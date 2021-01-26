@@ -4,6 +4,7 @@ import com.lightgraph.graph.modules.Module;
 import com.lightgraph.graph.modules.NetworkModule;
 
 public interface ConsensusModule extends Module {
+
     void bindNetwork(NetworkModule networkModule);
 
     ConsensusHandler loadInstance(ConsensusInstance instance, boolean clean, LeaderChangeListener... listener);

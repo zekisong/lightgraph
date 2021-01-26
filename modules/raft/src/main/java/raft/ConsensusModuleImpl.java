@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ConsensusModuleImpl implements ConsensusModule {
+
     private TimeWheel timeWheel;
     private Map<ConsensusInstance, RaftQuorum> raftInstanceMap = new ConcurrentHashMap();
     private Map<Node, RaftServiceGrpc.RaftServiceStub> peerMap = new ConcurrentHashMap();
@@ -27,15 +28,17 @@ public class ConsensusModuleImpl implements ConsensusModule {
     @Override
     public void setup(Configurable config) {
         long interval = config.get(RaftConstant.RAFT_TIMEWHEEL_INTERVAL, RaftConstant.RAFT_TIMEWHEEL_INTERVAL_DEFAULT);
-        int slotCount = config.get(RaftConstant.RAFT_TIMEWHEEL_SLOT_COUNT, RaftConstant.RAFT_TIMEWHEEL_SLOT_COUNT_DEFAULT);
+        int slotCount = config
+                .get(RaftConstant.RAFT_TIMEWHEEL_SLOT_COUNT, RaftConstant.RAFT_TIMEWHEEL_SLOT_COUNT_DEFAULT);
         heartBeatTimeout = config.get(RaftConstant.RAFT_HEARTBEAT_TIMEOUT, RaftConstant.RAFT_HEARTBEAT_TIMEOUT_DEFAULT);
         electionTimeout = config.get(RaftConstant.RAFT_ELECTION_TIMEOUT, RaftConstant.RAFT_ELECTION_TIMEOUT_DEFAULT);
         logPath = config.get(RaftConstant.RAFT_LOG_PATH, RaftConstant.RAFT_LOG_PATH_DEFAULT);
         this.timeWheel = new TimeWheel(interval, slotCount);
         segmentSize = config.get(RaftConstant.RAFT_LOGSEGMENT_SIZE, RaftConstant.RAFT_LOGSEGMENT_SIZE_DEFAULT);
         File logDir = new File(logPath);
-        if (!logDir.exists())
+        if (!logDir.exists()) {
             logDir.mkdir();
+        }
     }
 
     @Override
@@ -57,7 +60,8 @@ public class ConsensusModuleImpl implements ConsensusModule {
     }
 
     public RaftQuorum loadInstance(ConsensusInstance instance, boolean clean) {
-        RaftQuorum quorum = new RaftQuorum(logPath + GraphConstant.DIR_SEPARATOR + instance.getInstanceName(), this, instance, clean);
+        RaftQuorum quorum = new RaftQuorum(logPath + GraphConstant.DIR_SEPARATOR + instance.getInstanceName(), this,
+                instance, clean);
         return quorum;
     }
 

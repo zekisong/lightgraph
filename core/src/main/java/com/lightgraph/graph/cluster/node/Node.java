@@ -1,17 +1,16 @@
 package com.lightgraph.graph.cluster.node;
 
-import com.lightgraph.graph.writable.Sizeable;
 import com.lightgraph.graph.writable.Writable;
 import com.lightgraph.graph.config.GraphConfig;
 import com.lightgraph.graph.constant.GraphConstant;
 import com.lightgraph.graph.exception.GraphException;
-import com.lightgraph.graph.utils.ByteUtils;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.*;
 
-public class Node implements Writable, Sizeable {
+public class Node extends Writable {
+
     private static volatile Set<String> masters = null;
     private static Node myself;
     private String name;
@@ -36,8 +35,9 @@ public class Node implements Writable, Sizeable {
                         break;
                     }
                 }
-                if (myself != null)
+                if (myself != null) {
                     break;
+                }
             }
             if (myself == null) {
                 throw new GraphException(String.format("can not found host by prefix:%s", addrPrefix));
@@ -48,14 +48,18 @@ public class Node implements Writable, Sizeable {
         }
     }
 
+    public Node() {
+    }
+
     public Node(String name, String addr, Short port) {
         this(name, addr, port, NodeState.INIT, null);
     }
 
     public Node(String name, String addr, Short port, NodeState state, NodeType type) {
         if (type == null) {
-            if (masters == null)
+            if (masters == null) {
                 loadMasters();
+            }
             if (masters.contains(name)) {
                 type = NodeType.MASTER;
             } else {
@@ -69,32 +73,14 @@ public class Node implements Writable, Sizeable {
         this.type = type;
     }
 
-    public Node(byte[] bytes) {
-        int pos = ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX;
-        int nameSize = ByteUtils.getInt(bytes, pos);
-        pos = pos + ByteUtils.SIZE_INT;
-        int addrSize = ByteUtils.getInt(bytes, pos);
-        pos = pos + ByteUtils.SIZE_INT;
-        this.name = ByteUtils.getString(bytes, pos, nameSize);
-        pos = pos + nameSize;
-        this.addr = ByteUtils.getString(bytes, pos, addrSize);
-        pos = pos + addrSize;
-        this.port = ByteUtils.getShort(bytes, pos);
-        pos = pos + ByteUtils.SIZE_SHORT;
-        byte stateB = ByteUtils.getByte(bytes, pos);
-        this.state = NodeState.valueOf(stateB);
-        pos = pos + ByteUtils.SIZE_BYTE;
-        byte typeB = ByteUtils.getByte(bytes, pos);
-        this.type = NodeType.valueOf(typeB);
-    }
-
     public void loadMasters() {
         if (masters == null) {
             synchronized (Node.class) {
                 if (masters == null) {
                     Set<String> tmp = new HashSet<>();
                     GraphConfig conf = GraphConfig.getInstance();
-                    String masterServers = conf.get(GraphConstant.GRAPH_MASTER_SERVERS, GraphConstant.GRAPH_MASTER_SERVERS_DEFAULT);
+                    String masterServers = conf
+                            .get(GraphConstant.GRAPH_MASTER_SERVERS, GraphConstant.GRAPH_MASTER_SERVERS_DEFAULT);
                     String[] masterServersArray = masterServers.split(GraphConstant.SPLIT_ARRAY_TOKEN);
                     for (String name : masterServersArray) {
                         tmp.add(name);
@@ -143,40 +129,14 @@ public class Node implements Writable, Sizeable {
 
     @Override
     public boolean equals(Object target) {
-        if (target == null || !(target instanceof Node) || name == null || ((Node) target).name == null)
+        if (target == null || !(target instanceof Node) || name == null || ((Node) target).name == null) {
             return false;
+        }
         return name.equals(((Node) target).name);
     }
 
     @Override
     public String toString() {
         return String.format("name:%s", name);
-    }
-
-    @Override
-    public int size() {
-        return ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX
-                + ByteUtils.SIZE_INT
-                + ByteUtils.SIZE_INT
-                + name.length()
-                + addr.length()
-                + ByteUtils.SIZE_SHORT
-                + ByteUtils.SIZE_BYTE
-                + ByteUtils.SIZE_BYTE;
-    }
-
-    @Override
-    public byte[] getBytes() {
-        int size = size();
-        byte[] data = new byte[size];
-        int pos = ByteUtils.RESERVED_BYTE_SIZE＿FOR_TX;
-        pos = ByteUtils.putInt(data, pos, name.length());
-        pos = ByteUtils.putInt(data, pos, addr.length());
-        pos = ByteUtils.putString(data, pos, name);
-        pos = ByteUtils.putString(data, pos, addr);
-        pos = ByteUtils.putShort(data, pos, port);
-        pos = ByteUtils.put(data, pos, state.getValue());
-        ByteUtils.put(data, pos, type.getValue());
-        return data;
     }
 }

@@ -6,7 +6,8 @@ public enum MetaType {
     PROPERTY((byte) 'p'),
     VERTEX((byte) 'v'),
     EDGE((byte) 'e'),
-    GRAPH((byte) 'g');
+    GRAPH((byte) 'g'),
+    INDEX((byte) 'i');
 
     private byte value;
 
@@ -28,6 +29,8 @@ public enum MetaType {
                 return EDGE;
             case 'g':
                 return GRAPH;
+            case 'i':
+                return INDEX;
             default:
                 throw new GraphException(String.format("MetaType:%d not exits!", value));
         }

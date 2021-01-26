@@ -1,20 +1,21 @@
 package com.lightgraph.graph.storage;
 
 import com.lightgraph.graph.cluster.Replication;
-import com.lightgraph.graph.command.MasterOperation;
 import com.lightgraph.graph.command.StorageCommandRunner;
 import com.lightgraph.graph.command.StorageOperation;
 import com.lightgraph.graph.constant.GraphConstant;
 import com.lightgraph.graph.exception.ReplicationNotExistException;
-import com.lightgraph.graph.meta.MetaManager;
 import com.lightgraph.graph.modules.consensus.*;
 import com.lightgraph.graph.modules.rpc.MetaRpcService;
 import com.lightgraph.graph.modules.rpc.StorageRpcService;
 import com.lightgraph.graph.modules.storage.BackendStorageHandler;
 import com.lightgraph.graph.modules.storage.BackendStorageModule;
+import com.lightgraph.graph.modules.storage.Batch;
+import com.lightgraph.graph.modules.storage.Key;
 import com.lightgraph.graph.modules.storage.KeyValue;
 import com.lightgraph.graph.server.Server;
 import com.lightgraph.graph.server.ServerService;
+import java.util.Iterator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -47,7 +48,8 @@ public class StorageManager implements StorageRpcService {
     public void reportStorage() {
         List<Replication> replications = this.backendStorageModule.getExistReplication();
         MetaRpcService metaRpcService = server.getMasterLeader();
-        List<Replication> metas = replications.stream().filter(r -> r.getGraphName().equals(GraphConstant.META_TABLE_NAME)).collect(Collectors.toList());
+        List<Replication> metas = replications.stream()
+                .filter(r -> r.getGraphName().equals(GraphConstant.META_TABLE_NAME)).collect(Collectors.toList());
         metaRpcService.addReplications(metas);
         replications.removeAll(metas);
         if (replications.size() > 0) {
@@ -62,10 +64,12 @@ public class StorageManager implements StorageRpcService {
 
     @Override
     public boolean put(String graph, KeyValue keyValue) {
-        Replication replication = server.getPartitionLeader(graph, keyValue);
+        Replication replication = server.getPartitionLeader(graph, keyValue.getKey());
         byte[] command = keyValue.getBytes();
-        command[0] = StorageOperation.PUT.getOP();
-        WriteFuture future = commandRunners.get(replication).writeCommand(command);
+        byte[] attactedBytes = new byte[command.length + 1];
+        System.arraycopy(command, 0, attactedBytes, 1, command.length);
+        attactedBytes[0] = StorageOperation.PUT.getOP();
+        WriteFuture future = commandRunners.get(replication).writeCommand(attactedBytes);
         if (future == null || !future.get()) {
             LOG.error("write failed!");
         }
@@ -73,12 +77,25 @@ public class StorageManager implements StorageRpcService {
     }
 
     @Override
-    public List<KeyValue> scan(String graph, KeyValue keyValue) {
+    public boolean batchPut(String graph, Replication replication, Batch batch) {
+        byte[] command = batch.getBytes();
+        byte[] attactedBytes = new byte[command.length + 1];
+        System.arraycopy(command, 0, attactedBytes, 1, command.length);
+        attactedBytes[0] = StorageOperation.BATCH_PUT.getOP();
+        WriteFuture future = commandRunners.get(replication).writeCommand(attactedBytes);
+        if (future == null || !future.get()) {
+            LOG.error("write failed!");
+        }
+        return true;
+    }
+
+    @Override
+    public Iterator<KeyValue> scan(String graph, Key start) {
         try {
-            Set<Replication> replications = server.getReplications(graph, keyValue);
+            Set<Replication> replications = server.getReplications(graph, start);
             for (Replication replication : replications) {
                 if (replication != null && commandRunners.containsKey(replication)) {
-                    return commandRunners.get(replication).scan(keyValue);
+                    return commandRunners.get(replication).scan(start);
                 }
             }
             throw new ReplicationNotExistException("replication not exist!");
@@ -89,12 +106,12 @@ public class StorageManager implements StorageRpcService {
     }
 
     @Override
-    public KeyValue get(String graph, KeyValue keyValue) {
+    public KeyValue get(String graph, Key key) {
         try {
-            Set<Replication> replications = server.getReplications(graph, keyValue);
+            Set<Replication> replications = server.getReplications(graph, key);
             for (Replication replication : replications) {
                 if (replication != null && commandRunners.containsKey(replication)) {
-                    return commandRunners.get(replication).get(keyValue);
+                    return commandRunners.get(replication).get(key);
                 }
             }
             throw new ReplicationNotExistException("replication not exist!");
@@ -104,7 +121,8 @@ public class StorageManager implements StorageRpcService {
         }
     }
 
-    public ConsensusHandler loadConsensusInstance(Replication replication, boolean clean, LeaderChangeListener... listeners) {
+    public ConsensusHandler loadConsensusInstance(Replication replication, boolean clean,
+            LeaderChangeListener... listeners) {
         ConsensusHandler consensusIO = consensusModule.loadInstance(replication, clean, listeners);
         return consensusIO;
     }
@@ -131,7 +149,8 @@ public class StorageManager implements StorageRpcService {
         }
         if (!commandRunners.containsKey(replication)) {
             MetaRpcService metaRpcService = server.getMasterLeader();
-            ConsensusHandler consensusIO = loadConsensusInstance(replication, false, new ReplicationListener(metaRpcService));
+            ConsensusHandler consensusIO = loadConsensusInstance(replication, false,
+                    new ReplicationListener(metaRpcService));
             loadBackendStorage(replication, consensusIO);
         }
     }

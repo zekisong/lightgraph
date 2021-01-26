@@ -7,6 +7,7 @@ import com.lightgraph.graph.cluster.node.NodeType;
 import java.io.Serializable;
 
 public class NodeModel implements Serializable {
+
     private String name;
     private NodeType type;
     private NodeState state;
